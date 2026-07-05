@@ -105,6 +105,36 @@ Write one class deriving from `LightgunModule`, add its bindings to the input ac
 and drop the component next to `LightgunManager`. No changes to the manager or gameplay
 code. See the integration guide, §5.
 
+## Updating the package (future you)
+
+When you improve the package, release the change as a **new version tag** so projects adopt it
+deliberately instead of being surprised by it.
+
+1. **Edit via local path.** In a host project's `Packages/manifest.json`, point at your working
+   copy — `"com.palmware.lightguns": "file:../../Palmware.lightguns"` — so edits are live. (A
+   git-URL install is cached read-only under `Library/PackageCache` and can't be edited in place.)
+2. **Test in Unity**, then commit.
+3. **Bump the version** in `package.json` (`"version": "0.2.0"`) following semver — patch = fixes,
+   minor = new backward-compatible features, major = breaking changes — and add a `CHANGELOG.md`
+   entry.
+4. **Tag it and push:**
+   ```
+   git commit -am "your change"
+   git tag v0.2.0
+   git push && git push --tags
+   ```
+
+**Pin projects to a tag, never `main`.** Install with an explicit version —
+`https://github.com/LukeyPower/Palmware.lightguns.git#v0.2.0` — so an experiment in the package
+can't unexpectedly change a game you've already shipped. A project takes an update only when you
+change its `#tag` and let Unity re-resolve (Package Manager → refresh; if it's stubborn, remove the
+package's entry from `Library/PackageCache` so Unity re-fetches).
+
+> **Getting AI help on this later?** Point it at `Documentation~/why-this-package.md` (design +
+> rationale) and `Documentation~/integration-guide.md` (the per-gun hardware protocols). The
+> one-line summary: this is a UPM package consumed by git URL — edit via local path, bump the
+> semver version + tag, and each consuming project pins a specific tag.
+
 ## License
 
 MIT — see [`LICENSE.md`](LICENSE.md). Third-party attributions (Blamcon, Retro Shooter
