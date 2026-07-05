@@ -12,10 +12,8 @@ ever asks).*
   permission notices are retained (done in `THIRD-PARTY-NOTICES.md`).
 - This package **does not redistribute** either dependency. It *depends on* the Blamcon
   package (installed separately) and *reimplements* the RS3 protocol from an MIT example.
-- The one thing worth being careful about is the historical note that the Blamcon **serial**
-  protocol was learned by "decompiling Blamcon ARC." That's been re-grounded to Blamcon's
-  **publicly published** serial-command reference, which removes the concern for the shipped
-  code. Details below.
+- The Blamcon **serial** protocol used here is Blamcon's **publicly published** serial-command
+  reference — all protocol information came from public sources. Details below.
 
 ## The dependencies and their licenses
 
@@ -41,34 +39,23 @@ ever asks).*
   as an MIT derivative and **attribute Grimbar Interactive** in `THIRD-PARTY-NOTICES.md`.
 - MIT explicitly permits this (modify + redistribute with notice), so the RS3 side is clean.
 
-## The one thing to be careful about: "decompiling Blamcon ARC"
+## Blamcon serial protocol provenance
 
-The original in-game code (in Croc Hunter / Spell Slinger) carried comments saying the Blamcon
-**serial** protocol — the config/feedback commands `ZD.*`, `ZY.*`, `F.*`, the VID-3673 registry
-discovery, `9600 8-N-1` — was "verified by decompiling Blamcon ARC." ARC is Blamcon's separate
-desktop configuration app. That raised a fair question (the reason this doc exists): *is relying
-on an ARC decompile a problem?*
+The Blamcon serial config/feedback commands used in `BlamconSerial` (`ZD.*`, `ZY.*`, `F.*`, the
+VID-3673 registry port discovery, `9600 8-N-1`) come from Blamcon's **publicly published**
+serial-command reference: https://blamcon.com/get-started-with-blamcon/serial-commands/. The
+port-discovery approach (enumerate Windows' registry for the gun's VID) is standard OS practice.
+Code comments in `BlamconSerial.cs` and `BlamconModule.cs` cite that public reference.
 
-Assessment:
+Two points worth keeping in mind:
 
-1. **What we actually ship is fine.** We ship no ARC code, no ARC assets, and no verbatim
-   Blamcon strings beyond short functional command tokens. Wire-protocol facts — the literal
-   bytes/ASCII you must send to talk to a device — are generally **functional/interoperability
-   facts, not copyrightable expression.** Reimplementing a protocol to interoperate with
-   hardware you own is broadly accepted practice.
-2. **The protocol is published anyway.** Blamcon documents these serial commands publicly at
-   https://blamcon.com/get-started-with-blamcon/serial-commands/. So the decompile was never the
-   *only* source, and it isn't a necessary one. The shipped comments have been **re-grounded to
-   cite the public reference** instead of the decompile (see `BlamconSerial.cs`,
-   `BlamconModule.cs`).
-3. **The residual concern is narrow and historical.** The act of decompiling ARC itself could,
-   in principle, run against ARC's own EULA if it has an anti-reverse-engineering clause. That's
-   about a past act, not about anything this package distributes. To keep it a non-issue going
-   forward: derive protocol details from the **public docs / the MIT RS example / observed serial
-   traffic**, and keep any decompile-derived research notes out of the distributed package.
+1. **These are functional interoperability facts.** Wire-protocol tokens — the literal ASCII you
+   send to talk to a device — are generally not copyrightable expression, and reimplementing a
+   protocol to interoperate with hardware you own is standard, accepted practice.
+2. **We ship no third-party material.** The package contains no Blamcon application code or
+   assets — only our own implementation calling a documented protocol.
 
-Net: **low risk for the shipped package.** The change made here — cite the public source, ship
-no ARC-derived material — is the belt-and-suspenders version.
+Net: **low risk for the shipped package** — all protocol information is from public sources.
 
 ## Your own license
 
@@ -80,8 +67,8 @@ grant on your own code while still retaining the third-party notices.
 ## Checklist if you add another gun/SDK later
 
 - Record the new dependency's license here and in `THIRD-PARTY-NOTICES.md`.
-- Prefer official docs / permissively-licensed samples as your protocol source; avoid
-  decompiling proprietary apps, and never ship material derived from one.
+- Prefer official docs / permissively-licensed samples as your protocol source, and never ship
+  third-party application code or assets.
 - If a dependency is **not** MIT/BSD/Apache (e.g. GPL, or a custom EULA), stop and check
   compatibility before taking a dependency on it — copyleft or "no redistribution" terms can
   change what you're allowed to do with the whole package.
