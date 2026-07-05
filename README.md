@@ -1,0 +1,111 @@
+# Palmware Lightguns
+
+A device-agnostic lightgun integration layer for Unity's Input System. Your game
+talks to **one** `LightgunManager`; everything device-specific lives in per-gun
+modules. Aim, fire/reload events, and physical feedback (recoil, rumble, ammo LEDs,
+slide return) are routed to whichever gun is connected — so **gameplay code never has
+to know which gun fired.**
+
+Supported guns:
+
+| Gun | Input | Feedback | Notes |
+|---|---|---|---|
+| **Blamcon** | USB-HID | HID output reports **or** serial | Needs `com.blamcon.lightguns`; multiplayer P1–P4 |
+| **Retro Shooter RS3 "Reaper"** | USB-HID (joystick) | Serial COM port | Joystick-stick aim + smoothing |
+| **Sinden** (and AimTrak / Gun4IR / mouse-type) | System mouse | Driver-side | White tracking border overlay |
+
+> **Why this package exists** and the full design rationale live in
+> [`Documentation~/why-this-package.md`](Documentation~/why-this-package.md). Hardware
+> details and the per-gun protocols are in
+> [`Documentation~/integration-guide.md`](Documentation~/integration-guide.md).
+> Licensing is covered in [`Documentation~/licensing.md`](Documentation~/licensing.md).
+
+## Requirements
+
+- **Unity 6** (6000.0+)
+- **Input System** 1.14+ (declared as a package dependency; installs automatically)
+- **API Compatibility Level = .NET Framework.** The RS3 and Blamcon-serial drivers use
+  `System.IO.Ports`, which does **not** exist under .NET Standard. Set it in
+  *Project Settings → Player → Other Settings → Api Compatibility Level → .NET Framework*.
+- For the Blamcon module only: the **`com.blamcon.lightguns`** package
+  (https://github.com/Props3D/UnityLightguns) and gun firmware **1.0.16+**.
+
+## Installing
+
+### In a shipping project — via Git URL (recommended)
+
+*Package Manager → Add package from git URL…*:
+
+```
+https://github.com/LukeyPower/Palmware.lightguns.git
+```
+
+Pin to a released version by appending a tag — e.g. `…Palmware.lightguns.git#v0.1.0`.
+A git-URL package is cached read-only; you don't edit it in place.
+
+### While developing the package — via local path
+
+Add this to the **consuming project's** `Packages/manifest.json` so edits are live:
+
+```json
+"com.palmware.lightguns": "file:../../Palmware.lightguns"
+```
+
+(Path is relative to the project's `Packages/` folder. Adjust to wherever you cloned
+this repo.)
+
+## Project setup (once per project)
+
+1. Set **API Compatibility Level** to **.NET Framework** (see Requirements).
+2. If using a Blamcon gun, install **`com.blamcon.lightguns`**. (Skip for RS3-/Sinden-only
+   projects — the Blamcon assembly compiles itself out when the package is absent.)
+3. Import the **Setup** sample (*Package Manager → Palmware Lightguns → Samples → Import*)
+   to get `LightgunInputActions.inputactions`, or use your own action asset with
+   `Fire` / `Reload` / `Point` / `Submit` actions.
+4. Create a GameObject, add **`LightgunManager`**, and assign the input action asset.
+   Add the gun-module components you need next to it (`BlamconModule`, `BlamconSerial`,
+   `RetroShooterModule`, `SindenModule`). See the integration guide for scene wiring.
+
+## Quick usage
+
+```csharp
+using Palmware.Lightguns;
+
+void OnEnable()
+{
+    LightgunManager.Instance.FirePressed   += OnFire;
+    LightgunManager.Instance.ReloadPressed += OnReload;
+}
+
+void OnFire(LightgunEventArgs args)
+{
+    Ray ray = Camera.main.ScreenPointToRay(args.AimPosition);
+    // ...hit detection, spend ammo...
+    LightgunManager.Instance.Recoil(args.Device, currentAmmo); // kicks only the gun that fired
+}
+
+void OnReload(LightgunEventArgs args)
+{
+    LightgunManager.Instance.ReloadAll(); // e.g. returns the RS3's physical slide
+}
+```
+
+## Assemblies
+
+- **`Palmware.Lightguns`** — core: manager, interfaces, `RetroShooterModule`,
+  `SindenModule`, `SindenBorder`. Always compiles.
+- **`Palmware.Lightguns.Blamcon`** — `BlamconModule` + `BlamconSerial`. Guarded by the
+  `PALMWARE_BLAMCON` define, which is auto-set (via the asmdef's version define) only
+  when `com.blamcon.lightguns` is installed. If a Blamcon gun isn't recognized, confirm
+  that package is present and check the Console for a "define constraints" skip message.
+
+## Adding another gun
+
+Write one class deriving from `LightgunModule`, add its bindings to the input actions,
+and drop the component next to `LightgunManager`. No changes to the manager or gameplay
+code. See the integration guide, §5.
+
+## License
+
+MIT — see [`LICENSE.md`](LICENSE.md). Third-party attributions (Blamcon, Retro Shooter
+example) are in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).

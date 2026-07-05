@@ -1,0 +1,26 @@
+# This repo is a Unity *package*, not a Unity project — so there is no Library/,
+# Temp/, obj/, or Build/ to ignore under normal use. Keep .meta files tracked:
+# Unity needs them and they carry the asset GUIDs consumers rely on.
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+# NOTE: do not add "*~" here — it would match Unity's Documentation~ and Samples~
+# folders, which are hidden from the Editor but MUST be committed to git.
+
+# IDE
+.vs/
+.idea/
+*.csproj
+*.sln
+*.user
+
+# If you ever open this folder AS a project for testing, ignore the generated dirs:
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Ll]ogs/
+[Uu]serSettings/

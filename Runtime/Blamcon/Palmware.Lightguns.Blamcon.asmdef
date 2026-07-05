@@ -1,0 +1,28 @@
+{
+    "name": "Palmware.Lightguns.Blamcon",
+    "rootNamespace": "Palmware.Lightguns",
+    "references": [
+        "Palmware.Lightguns",
+        "Unity.InputSystem",
+        "Blamcon.Lightguns"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "System.IO.Ports.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "PALMWARE_BLAMCON"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.blamcon.lightguns",
+            "expression": "1.0.0",
+            "define": "PALMWARE_BLAMCON"
+        }
+    ],
+    "noEngineReferences": false
+}
