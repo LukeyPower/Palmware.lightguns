@@ -10,9 +10,16 @@ Supported guns:
 
 | Gun | Input | Feedback | Notes |
 |---|---|---|---|
-| **Blamcon** | USB-HID | HID output reports **or** serial | Needs `com.blamcon.lightguns`; multiplayer P1–P4 |
-| **Retro Shooter RS3 "Reaper"** | USB-HID (joystick) | Serial COM port | Joystick-stick aim + smoothing |
-| **Sinden** (and AimTrak / Gun4IR / mouse-type) | System mouse | Driver-side | White tracking border overlay |
+| **Blamcon** | USB-HID (MnK or Gamepad mode) | HID output reports **or** serial | Needs `com.blamcon.lightguns`; P1–P4 |
+| **Retro Shooter RS3 "Reaper"** | USB-HID (MnK or joystick mode) | Serial COM port (auto-detected by USB VID/PID) | P1–P4 |
+| **Sinden** (and AimTrak / Gun4IR / mouse-type) | System mouse | Driver-side | White tracking border overlay; single player |
+
+**MnK-first mode policy:** a single gun is left in whatever mode it arrived in — usually its
+power-on mouse+keyboard mode, where it plays through the mouse path with **serial** recoil.
+The moment **2+ physical guns** are detected (any mix — Blamcons, RS3s, or both, up to 4),
+MnK-mode guns are switched automatically to their per-device mode (Blamcon → Gamepad, RS3 →
+Joystick) so every gun has its own identity and crosshair, and restored on exit. Multiplayer
+game code keys players by `InputDevice` — see the integration guide §5.
 
 > **Why this package exists** and the full design rationale live in
 > [`Documentation~/why-this-package.md`](Documentation~/why-this-package.md). Hardware

@@ -79,11 +79,22 @@ ASCII (`SerialPort.WriteLine`), ~500 ms timeouts.
 | `ZY.<idx>.<value>` | Write setting **and reboot/re-enumerate** |
 | `ZY.<idx>.<value>.0` | Write setting **without** rebooting (fw ≥ 1.0.14) |
 | `ZE` / `ZC` | Reboot / factory reset |
-| `S6` / `E` | Start / end serial feedback (external control) mode |
+| `SM.0.1` / `SM.0.0` | Take / release **solenoid** serial control |
+| `SM.1.1` / `SM.1.0` | Take / release **haptic motor** serial control |
+| `SM.2.1` / `SM.2.0` | Take / release addressable-LED serial control |
+| `SM.6.1` / `SM.6.0` / `ES` | Take / release serial control of ALL components |
 | `F.0.1.<pulses>` | **Recoil** (works in any emulation mode) |
 | `F.1.1.<pulses>` | Rumble/haptic |
 | `F.2.1.<rgbInt>[.<pulses>]` / `F.2.0` | LED color on (24-bit int) / off |
+| `CM.8.<n>` | Firmware **recoil mode** setting: `0` off, `1` single-action on trigger, `2` full-auto |
 | `CB1` / `CB0`, `T1` / `T0` | Calibration start/stop, test mode |
+
+> ⚠️ **Take serial control before sending `F.*`** (hardware-verified on fw 1.0.16: without
+> it, `F.0.1.1` does nothing). And once the solenoid subsystem is active without the game
+> holding control, the firmware's own recoil mode (`CM.8`) kicks the gun on **every trigger
+> pull** — menus and splash screens included. `SM.0.1`/`SM.1.1` is the serial twin of the HID
+> `EnableFFBControl` handshake: while held, the gun only kicks on game commands.
+> `BlamconSerial` takes control at detection time and releases it on quit (`ES`).
 
 **Setting index 3 = emulation mode** (`0` = Mouse/KB, `1` = Gamepad, `2` = Mouse/KB Bluetooth,
 `3` = Gamepad Bluetooth). Other useful indices: `0` = player ID, `4` = full-auto recoil,
@@ -96,10 +107,20 @@ ASCII (`SerialPort.WriteLine`), ~500 ms timeouts.
 3. Restore on exit: `ZY.3.0`. The setting persists across power-off, so restoring is a courtesy
    to the user's other software, not a requirement.
 
-**In this package** `BlamconSerial` implements all of the above: drop it next to
-`LightgunManager` and a gun plugged in wearing the "wrong" mode is detected, switched to Gamepad
-mode, claimed by `BlamconModule`, and put back on quit. `SerialRecoilAll` is a serial
-recoil/rumble fallback (the "Hook of the Reaper" trick) for the auto-switch-off case.
+**In this package** `BlamconSerial` implements all of the above with an **MnK-first policy**
+(mirroring the RS3 module): a single gun is **left in whatever mode it arrived in**. A
+Gamepad-mode gun is claimed by `BlamconModule`; an MnK-mode gun plays through the manager's
+mouse path and `BlamconSerial` — registered as a module — claims its mouse shots and fires
+**serial recoil/rumble** (`F.0.1.n` / `F.1.1.n`, the "Hook of the Reaper" trick, works in any
+mode). Only when **2+ physical guns** exist (any mix of families, via `LightgunRoster`) are
+MnK guns switched to Gamepad mode — per-device identity is unavoidable then, since two mice
+can't share one OS cursor. Guns the package switched are restored to their arrival mode on
+quit. (`modeSwitchPolicy` also offers `AlwaysSwitch` — the old behavior — and `KeepMode`.)
+
+> **Double-kick caveat (MnK serial recoil):** unless FFB control is taken from the firmware
+> (HID-only, Gamepad mode), the gun may also auto-recoil on trigger pull by itself. If a shot
+> kicks twice, disable trigger recoil on the gun in ARC, or turn off `serialRecoilInMnk` and
+> let the firmware do the kicking.
 
 ### Aiming
 In Gamepad mode the gun reports an absolute on-screen position via `Lightgun.current.position`,
@@ -134,6 +155,17 @@ A HID input interface (trigger/buttons) **plus** a separate virtual **serial COM
 purely for output (recoil, ammo LEDs, rumble, slide). Inputs come through the Input System; the
 COM port is output-only.
 
+### Finding the serial port (Windows)
+The RS3 identifies itself on USB as **`VID_0483`** with **one PID per player slot:
+`PID_5750`–`PID_5753` = P1–P4** (observed in Retro Shooter's own shipped titles — *Master
+Shooter: Warehouse Target* and the bundled RetroGun calibration tool match exactly these IDs).
+`RetroShooterModule` auto-detects the port the same way `BlamconSerial` finds Blamcons: walk
+`HKLM\SYSTEM\CurrentControlSet\Enum`, match `VID_0483&PID_575x`, read
+`Device Parameters\PortName`. Filtering by VID/PID means we never write probe commands at some
+other device's COM port. Leave the module's `portName` empty for auto-detect; set it manually
+only if detection misses (or off Windows). `FindRetroShooterPorts()` is public and returns ports
+sorted P1-first, so multi-gun callers can map player slots → ports.
+
 ### Two input modes
 - **Mouse + Keyboard mode**: aiming drives the OS cursor; trigger = mouse click.
 - **Joystick mode** (preferred): enumerates as a generic **Joystick**. Aiming X/Y form
@@ -163,21 +195,38 @@ An RS3 appears as a HID device whose description contains manufacturer **`3AGAME
 **`Retro Shooter`** (e.g. `<HID::3AGAME 3A-3H Retro Shooter 1>`). `RetroShooterModule.Owns` matches
 on those strings.
 
-### Why joystick mode
-Recoil is serial and works in **either** mode. But for the trigger to be *identifiable* as the
-RS3 (so recoil routes to it and not a real mouse), joystick mode is cleanest: the trigger arrives
-as `<Joystick>/trigger` on the recognizable `3AGAME` device. Trade-off: joystick mode no longer
-drives the mouse, so aim + reload are read from the joystick (stick + a joystick button).
+### Choosing a mode: MnK-first
+Recoil is serial and works in **either** mode, so a single gun is **left in whatever mode it
+arrived in** — usually its power-on default, **mouse+keyboard**. Aim and fire then flow
+through the manager's mouse path (like a Sinden), and recoil still routes to the gun because
+`RetroShooterModule.Owns` claims mouse-device shots **while the serial port is open** (an RS3
+confirmed on serial + a mouse trigger ⇒ that "mouse" is almost certainly the gun). Single-gun
+assumption: a real desktop mouse click also kicks the gun, and this must not be combined with
+an active `SindenModule` (which claims the mouse the same way). A gun that arrives already in
+joystick mode works identically — per-device stick aim, no switching either way.
+
+**Joystick mode is switched on automatically only when it's needed**: as soon as **2+
+physical guns** exist (any mix of families, via `LightgunRoster`), every MnK-mode RS3 gets
+`ZJ` — two mice can't share one OS cursor, so per-device identity is unavoidable. Each gun
+then arrives as its own recognizable `3AGAME` joystick with its own crosshair (per-device
+`TryGetAim`), paired to its COM port by USB PID. Manual controls: `forceJoystickMode`
+(always-on) or `SetJoystickMode(bool)` at runtime. The module restores MnK mode on exit for
+any gun it switched.
 
 ### Gotchas
 - Switching mode **re-enumerates** the gun on USB. Send `ZJ` shortly after opening the port;
   `RetroShooterModule.OnDeviceChange` also reconnects the serial side on hot-plug.
+- Don't read `Joystick.current` — it's whatever joystick spoke last (a gamepad, a wheel, a
+  second gun). Track the RS3's own device via `IsRetroShooterDevice` and device-change events.
 - The generic joystick `stick` applies a centre **deadzone** — read `stick.ReadUnprocessedValue()`
   for absolute aim so the screen centre isn't dead-spotted.
 - The IR sensor **jitters** — run the mapped position through a low-pass filter
   (`Vector2.SmoothDamp`, ~0.04–0.08 s). See `RetroShooterModule.aimSmoothTime`.
-- If the COM port is wrong/unavailable, all output is a silent no-op — keep the port name
-  configurable and log the connection state.
+- If no COM port can be opened, all output is a silent no-op — auto-detect covers the normal
+  case; keep the manual port override available and log the connection state.
+- Serial links can die while the app is unfocused — the module re-checks the port on
+  `Application.focusChanged` (Retro Shooter's own titles re-init their input capture on focus
+  regained for the same reason).
 - `System.IO.Ports` needs the **.NET Framework** API compatibility level (it doesn't exist under
   .NET Standard).
 
@@ -247,6 +296,30 @@ module's `TryGetAim` feed it, and whichever source **moved most recently** owns 
 Blamcon module re-arms FFB on reconnect; the RS3 module retries its serial port), then raises
 `GunConnected`/`GunDisconnected` for the game/UI.
 
+### Multiplayer (2–4 guns, mixed families)
+
+The mode policy makes multiplayer automatic at the device level:
+
+1. **Counting** — each family's serial/registry scanner reports its physical gun count to the
+   static `LightgunRoster` (a gun is countable in ANY input mode, because Blamcons and RS3s
+   expose their USB serial side in every mode). Blamcon PIDs `0100–0103`/`0200–0203` and RS3
+   PIDs `5750–5753` are per-player-slot, so counts are exact.
+2. **Escalation** — the moment `LightgunRoster.TotalGuns >= 2` (hot-plug included), every
+   MnK-mode gun is switched to its per-device mode: Blamcon → Gamepad (`ZY.3.1`), RS3 →
+   Joystick (`ZJ`). Two mice can't share one OS cursor, so this is the one case a mode switch
+   is required. Switched guns are restored to their arrival mode on exit; the package never
+   de-escalates mid-session (disruptive).
+3. **Per-player game code** — key players by `InputDevice`:
+   - `LightgunManager.GetGunDevices()` — the connected physical gun devices (assign players).
+   - `FirePressed`/`ReloadPressed` args carry the firing `Device`, and their `AimPosition` is
+     already **that device's own aim** (`GetAimFor` internally).
+   - `GetAimFor(device)` — that player's live crosshair each frame.
+   - `Recoil(args.Device, ammo)` — kicks exactly the gun that fired, whatever family it is.
+
+Mixed setups (e.g. 1 Blamcon + 1 RS3) need nothing special — each family's module handles its
+own guns and the manager routes per device. Mouse-type guns (Sinden etc.) stay single-player
+(Raw Input would be needed for two OS cursors — out of scope).
+
 ### Adding another gun
 1. Make sure Unity recognizes it (a HID layout / the right mode).
 2. Add its bindings to the `Fire`/`Reload`/`Point` actions.
@@ -259,11 +332,14 @@ Blamcon module re-arms FFB on reconnect; the RS3 module retries its serial port)
 
 ## 6. Key source files (this package)
 
-- `Runtime/LightgunManager.cs` — the hub (events, aim arbitration, feedback routing, hot-swap).
+- `Runtime/LightgunManager.cs` — the hub (events, aim arbitration + per-device aim, feedback
+  routing, hot-swap, `GetGunDevices`).
+- `Runtime/LightgunRoster.cs` — shared physical-gun count driving the mode policy (1 gun =
+  keep mode; 2+ = per-device modes).
 - `Runtime/ILightgunModule.cs` — the per-gun module interface.
 - `Runtime/LightgunModule.cs` — MonoBehaviour base with auto-registration + no-op defaults.
-- `Runtime/Modules/RetroShooterModule.cs` — RS3 serial driver (mode switching, recoil/slide/rumble,
-  joystick aim + smoothing).
+- `Runtime/Modules/RetroShooterModule.cs` — RS3 serial driver (COM auto-detect by USB VID/PID,
+  MnK-first with opt-in joystick mode, recoil/slide/rumble, joystick aim + smoothing).
 - `Runtime/Modules/SindenModule.cs` — Sinden / mouse-gun compatibility (detection + manual toggle,
   drives the border).
 - `Runtime/SindenBorder.cs` — the white tracking border overlay.

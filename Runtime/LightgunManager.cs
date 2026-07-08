@@ -127,6 +127,36 @@ namespace Palmware.Lightguns
             return null;
         }
 
+        // Aim for one SPECIFIC device — this is the multiplayer crosshair API.
+        // Guns with their own absolute aim (Blamcon gamepad mode, RS3 joystick
+        // mode) answer per-device; everything else (mouse path / MnK-mode guns)
+        // falls back to the shared AimPosition.
+        public Vector2 GetAimFor(InputDevice device)
+        {
+            var owner = FindOwner(device);
+            if (owner != null && owner.TryGetAim(device, out Vector2 pos))
+                return new Vector2(
+                    Mathf.Clamp(pos.x, 0f, Screen.width),
+                    Mathf.Clamp(pos.y, 0f, Screen.height));
+            return AimPosition;
+        }
+
+        // The physical gun devices currently claimed by a module — for player
+        // assignment in multiplayer. Key your players by InputDevice: Fire events
+        // carry the device, and GetAimFor(device) is that player's crosshair.
+        // (Mouse/keyboard are excluded: a single MnK-mode gun plays through the
+        // mouse path and needs no per-player identity.)
+        public List<InputDevice> GetGunDevices()
+        {
+            var list = new List<InputDevice>();
+            foreach (var device in InputSystem.devices)
+            {
+                if (device is Mouse || device is Keyboard) continue;
+                if (FindOwner(device) != null) list.Add(device);
+            }
+            return list;
+        }
+
         // -----------------------------------------------------------------------
         //  Feedback routing (game → modules)
         // -----------------------------------------------------------------------
@@ -227,7 +257,9 @@ namespace Palmware.Lightguns
             _lastFireTime = Time.unscaledTime;
 
             var device = ctx.control.device;
-            var args = new LightgunEventArgs(device, FindOwner(device), AimPosition);
+            // Per-device aim: in multiplayer each gun's shot lands where THAT gun
+            // points, not where the shared crosshair is.
+            var args = new LightgunEventArgs(device, FindOwner(device), GetAimFor(device));
             if (logDebugMessages)
                 Debug.Log($"[Lightgun] Fire from '{device?.displayName}' (module: {args.Module?.DisplayName ?? "none"}) at {args.AimPosition}");
             FirePressed?.Invoke(args);
@@ -240,7 +272,7 @@ namespace Palmware.Lightguns
             if (ctx.ReadValue<float>() < 0.5f) return;
 
             var device = ctx.control.device;
-            ReloadPressed?.Invoke(new LightgunEventArgs(device, FindOwner(device), AimPosition));
+            ReloadPressed?.Invoke(new LightgunEventArgs(device, FindOwner(device), GetAimFor(device)));
         }
 
         // -----------------------------------------------------------------------

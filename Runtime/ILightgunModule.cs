@@ -37,6 +37,12 @@ namespace Palmware.Lightguns
         // no aim of their own return false.
         bool TryGetAim(out Vector2 screenPosition, out bool movedThisFrame);
 
+        // Per-device aim, for multiplayer: the screen-space aim of one SPECIFIC
+        // device this module owns (each gun is its own crosshair). Return false
+        // when the device has no absolute aim of its own — e.g. MnK-mode guns,
+        // whose aim is the OS cursor and flows through the manager's mouse path.
+        bool TryGetAim(InputDevice device, out Vector2 screenPosition);
+
         // Kick the gun after it fires. 'firingDevice' is the exact device that shot
         // (so multi-gun setups kick the right one); 'remainingAmmo' drives ammo LEDs
         // on guns that have them.

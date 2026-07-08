@@ -130,6 +130,15 @@ namespace Palmware.Lightguns
             return true;
         }
 
+        // Per-device aim (multiplayer): each Blamcon P1–P4 is its own crosshair.
+        public override bool TryGetAim(InputDevice device, out Vector2 screenPosition)
+        {
+            screenPosition = default;
+            if (!provideAim || device is not BlamconLightgunHID gun) return false;
+            screenPosition = gun.position.ReadValue();
+            return true;
+        }
+
         // ── Feedback ───────────────────────────────────────────────────────────
 
         public override void Recoil(InputDevice firingDevice, int remainingAmmo)

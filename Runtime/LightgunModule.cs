@@ -26,6 +26,12 @@ namespace Palmware.Lightguns
             return false;
         }
 
+        public virtual bool TryGetAim(InputDevice device, out Vector2 screenPosition)
+        {
+            screenPosition = default;
+            return false;
+        }
+
         public virtual void Recoil(InputDevice firingDevice, int remainingAmmo) { }
         public virtual void Rumble() { }
         public virtual void ReloadFeedback() { }
