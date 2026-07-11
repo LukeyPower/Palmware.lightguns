@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palmware Lightguns — Layer Map</title>
+</head>
+<body>
+<style>
+  :root {
+    --bg: #131820;
+    --panel: #1c232e;
+    --panel-2: #232c3a;
+    --line: #2f3a4a;
+    --text: #e6ebf2;
+    --muted: #93a1b4;
+    --event: #f0b429;   /* input events, flowing UP to the game */
+    --aim: #4fc3e8;     /* aim, read every frame */
+    --feedback: #ef6a55;/* feedback commands, flowing DOWN to hardware */
+    --plug: #6fbf73;    /* registration / detection */
+    --mono: Consolas, "Cascadia Code", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
+    margin: 0;
+    padding: 32px 16px 64px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  header { margin-bottom: 28px; }
+  .eyebrow {
+    color: var(--aim);
+    font: 600 11px/1 var(--mono);
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 30px;
+    font-weight: 650;
+    letter-spacing: -.01em;
+    margin: 8px 0 6px;
+    text-wrap: balance;
+  }
+  header p { color: var(--muted); max-width: 62ch; margin: 0; }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 44px 0 14px;
+  }
+
+  /* legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 18px; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .swatch { width: 22px; height: 4px; border-radius: 2px; }
+
+  /* layers */
+  .layer {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .layer-tag {
+    font: 600 10.5px/1 var(--mono);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .layer-title { font-size: 17px; font-weight: 650; }
+  .layer-title code, .card h3 code, td code, .flow code, li code {
+    font-family: var(--mono);
+    font-size: .92em;
+    color: inherit;
+  }
+  .layer-note { color: var(--muted); font-size: 13.5px; margin-top: 4px; max-width: 72ch; }
+
+  .manager { border-color: #3c516b; background: linear-gradient(180deg, #1f2937, #1b2431); }
+  .manager .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .duty {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  .duty b { display: block; font-size: 12.5px; margin-bottom: 3px; }
+  .duty span { color: var(--muted); }
+
+  /* flow strips between layers */
+  .flows {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    justify-content: center;
+    padding: 14px 8px;
+  }
+  .flow {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: #171d27;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 14px;
+  }
+  .flow .dir { font-size: 14px; font-weight: 700; }
+  .up-event .dir   { color: var(--event); }
+  .up-aim .dir     { color: var(--aim); }
+  .down-fb .dir    { color: var(--feedback); }
+  .up-plug .dir    { color: var(--plug); }
+  .flow code { color: var(--text); }
+
+  /* module + hardware rows */
+  .row3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card h3 { margin: 0 0 2px; font-size: 15px; font-weight: 650; }
+  .card .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+  .card ul { margin: 0; padding: 0 0 0 2px; list-style: none; }
+  .card li {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 3px 0 3px 16px;
+    position: relative;
+  }
+  .card li::before {
+    content: "";
+    position: absolute; left: 0; top: 10px;
+    width: 7px; height: 7px; border-radius: 2px;
+  }
+  .card li.looks::before { background: var(--plug); }
+  .card li.speaks::before { background: var(--feedback); }
+  .card li.aims::before { background: var(--aim); }
+  .card li b { color: var(--text); font-weight: 600; }
+
+  .transport {
+    margin-top: 10px;
+    text-align: center;
+    font: 600 11px/1.5 var(--mono);
+    color: var(--feedback);
+  }
+  .transport.none { color: var(--muted); }
+
+  .hardware .card { background: #171d27; }
+  .hardware h3 { font-weight: 600; }
+
+  .loopnote {
+    margin-top: 14px;
+    border: 1px dashed #3c516b;
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .loopnote b { color: var(--aim); }
+
+  /* sequences */
+  .seq { counter-reset: step; display: grid; gap: 8px; }
+  .seq li {
+    list-style: none;
+    counter-increment: step;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px 10px 52px;
+    position: relative;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .seq li b { color: var(--text); }
+  .seq li::before {
+    content: counter(step);
+    position: absolute; left: 14px; top: 50%;
+    translate: 0 -50%;
+    width: 26px; height: 26px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    font: 700 12px/1 var(--mono);
+    background: #101520;
+    border: 1px solid var(--line);
+  }
+  .seq.shot li::before { color: var(--event); }
+  .seq.aimseq li::before { color: var(--aim); }
+
+  .golden {
+    margin-top: 44px;
+    border-left: 3px solid var(--event);
+    padding: 4px 0 4px 18px;
+    max-width: 66ch;
+  }
+  .golden p { margin: 0; color: var(--muted); }
+  .golden b { color: var(--text); }
+
+  footer { margin-top: 40px; color: var(--muted); font-size: 12.5px; }
+  footer code { font-family: var(--mono); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Palmware Lightguns · Unity package</div>
+    <h1>The Lightgun Layer, on one page</h1>
+    <p>Every conversation between your game and a physical gun passes through one switchboard.
+       Game code and gun hardware never talk to each other directly — that is the whole design.</p>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--event)"></i> input events — flow UP to the game</span>
+      <span><i class="swatch" style="background:var(--aim)"></i> aim — read every frame</span>
+      <span><i class="swatch" style="background:var(--feedback)"></i> feedback commands — flow DOWN to hardware</span>
+      <span><i class="swatch" style="background:var(--plug)"></i> plug-in &amp; detection</span>
+    </div>
+  </header>
+
+  <h2>The map — four layers</h2>
+
+  <div class="layer">
+    <div class="layer-tag">Layer 1 · your gameplay code</div>
+    <div class="layer-title">Shooter script · crosshair UI · options menu</div>
+    <div class="layer-note">Knows nothing about guns. Subscribes to the manager's events, reads
+      <code>AimPosition</code>, and decides <em>when</em> feedback should happen (no recoil on a dry fire, for example).</div>
+  </div>
+
+  <div class="flows">
+    <span class="flow up-event"><span class="dir">▲</span><code>FirePressed / ReloadPressed / GunConnected</code> events</span>
+    <span class="flow up-aim"><span class="dir">▲</span><code>AimPosition</code> read each frame</span>
+    <span class="flow down-fb"><span class="dir">▼</span><code>Recoil(device, ammo) · RumbleAll() · ReloadAll() · SetAmmoAll(n)</code></span>
+  </div>
+
+  <div class="layer manager">
+    <div class="layer-tag">Layer 2 · the switchboard (a scene GameObject)</div>
+    <div class="layer-title"><code>LightgunManager</code></div>
+    <div class="layer-note">The ONE class the game talks to. It is watching for three things:</div>
+    <div class="grid">
+      <div class="duty"><b>1 · Action events</b>
+        <span>Listens to <code>Fire</code>/<code>Reload</code> in <code>LightgunInputActions.inputactions</code> —
+        the asset where mouse click, Blamcon trigger and RS3 trigger are all bound to the same action.</span></div>
+      <div class="duty"><b>2 · Module registry</b>
+        <span>Modules call <code>Register(this)</code> when enabled. To route a shot it asks each one:
+        “<code>Owns(device)</code> — is this trigger pull yours?”</span></div>
+      <div class="duty"><b>3 · Aim arbitration</b>
+        <span>Every frame: “Mouse, did you move? Modules, <code>TryGetAim</code>?” —
+        whoever moved <em>last</em> owns the crosshair.</span></div>
+      <div class="duty"><b>4 · Hot-swap watch</b>
+        <span>Forwards Unity's plugged-in / unplugged notices to every module, then tells the game
+        via <code>GunConnected</code>/<code>GunDisconnected</code>.</span></div>
+    </div>
+  </div>
+
+  <div class="flows">
+    <span class="flow up-plug"><span class="dir">▲</span><code>Register(this)</code> — “I exist, I handle gun X”</span>
+    <span class="flow down-fb"><span class="dir">▼</span>questions &amp; orders: <code>Owns()? · TryGetAim()? · Recoil()!</code></span>
+  </div>
+
+  <div class="row3">
+    <div class="card">
+      <h3><code>BlamconModule</code></h3>
+      <div class="sub">driver for Blamcon guns (P1–P4)</div>
+      <ul>
+        <li class="looks"><b>Looks for:</b> <code>BlamconLightgunHID</code> devices (Gamepad mode; <code>BlamconSerial</code> handles guns left in MnK mode)</li>
+        <li class="aims"><b>Aim:</b> the gun's absolute <code>position</code> control, already in screen pixels</li>
+        <li class="speaks"><b>Speaks:</b> recoil / rumble / LED / ammo commands; re-arms FFB control on every re-plug</li>
+      </ul>
+      <div class="transport">▼ USB HID output reports</div>
+    </div>
+    <div class="card">
+      <h3><code>RetroShooterModule</code></h3>
+      <div class="sub">driver for the RS3 “Reaper”</div>
+      <ul>
+        <li class="looks"><b>Looks for:</b> “3AGAME / Retro Shooter” devices + its COM port (auto-detected by USB VID/PID); MnK-first — Joystick mode (<code>ZJ</code>) when 2+ guns</li>
+        <li class="aims"><b>Aim:</b> joystick stick (absolute), inverted &amp; smoothed to damp IR jitter</li>
+        <li class="speaks"><b>Speaks:</b> <code>Z0–Z5</code> recoil+LEDs · <code>Z6</code> slide return · <code>ZZ</code> rumble</li>
+      </ul>
+      <div class="transport">▼ serial COM text commands</div>
+    </div>
+    <div class="card">
+      <h3><code>SindenModule</code></h3>
+      <div class="sub">compat for mouse-type guns</div>
+      <ul>
+        <li class="looks"><b>Looks for:</b> “Sinden” in device names, plus a manual options-menu toggle</li>
+        <li class="aims"><b>Aim:</b> none of its own — the Sinden driver moves the OS cursor, so the mouse path covers it</li>
+        <li class="speaks"><b>Speaks:</b> nothing to hardware; shows/hides the white <code>SindenBorder</code> the camera needs</li>
+      </ul>
+      <div class="transport none">▼ (no commands — Sinden's own software does feedback)</div>
+    </div>
+  </div>
+
+  <div class="flows"><span class="flow down-fb"><span class="dir">▼</span>hardware, each speaking its own language</span></div>
+
+  <div class="row3 hardware">
+    <div class="card"><h3>🔫 Blamcon lightgun</h3>
+      <div class="sub">USB HID gamepad · IR 4-point tracking · kicks, buzzes, LEDs</div></div>
+    <div class="card"><h3>🔫 Retro Shooter RS3</h3>
+      <div class="sub">HID joystick + virtual COM port · recoil, slide, ammo LEDs</div></div>
+    <div class="card"><h3>🔫 Sinden lightgun</h3>
+      <div class="sub">camera in the barrel · its PC driver moves the OS mouse cursor</div></div>
+  </div>
+
+  <div class="loopnote"><b>The Sinden loop:</b> its hardware never talks to the game at all.
+    Camera → Sinden driver software → OS mouse cursor → Unity Input System → back into the manager's
+    mouse path at the top. That's why single-player Sinden support is “almost free” — and why the
+    border overlay is the only thing we must render for it.</div>
+
+  <h2>One shot, end to end</h2>
+  <ol class="seq shot">
+    <li>You pull the <b>Blamcon trigger</b>.</li>
+    <li>Unity's Input System matches it to the <b><code>Fire</code> action</b> (binding: <code>&lt;LightGun&gt;/buttonWest</code>) and fires it with the exact device attached.</li>
+    <li><b><code>LightgunManager</code></b> debounces trigger bounce, then asks each module “<code>Owns(device)</code>?” — <code>BlamconModule</code> answers “mine”.</li>
+    <li>The manager raises <b><code>FirePressed(args)</code></b> — device, owning module, and where you were aiming.</li>
+    <li><b>Your shooter script</b> raycasts from <code>args.AimPosition</code>, spends ammo, then calls <code>Recoil(args.Device, ammoLeft)</code>.</li>
+    <li>The manager routes that to <code>BlamconModule.Recoil()</code> → <b>USB HID recoil command</b> → the gun physically kicks. A mouse click stops at step 5: nothing owns it, nothing kicks.</li>
+  </ol>
+
+  <h2>Aiming, every frame</h2>
+  <ol class="seq aimseq">
+    <li><code>LightgunManager.Update()</code> asks: <b>“Mouse, did you actually move?”</b> — an idle mouse never steals the crosshair.</li>
+    <li>Then each module: <b>“<code>TryGetAim</code>?”</b> — Blamcon reads its position control; the RS3 reads its stick and smooths the jitter.</li>
+    <li>Whichever source <b>moved most recently</b> wins and becomes <code>AimPosition</code>. Your crosshair and raycasts read that one value and never know who's driving.</li>
+  </ol>
+
+  <div class="golden">
+    <p><b>The golden rule this buys you:</b> adding or swapping a gun = one new module + a row of
+    input bindings. The manager doesn't change. Your game code doesn't change. It was never talking
+    to the gun in the first place.</p>
+  </div>
+
+  <footer>Source: <code>Runtime/</code> ·
+    docs: <code>scene-setup-guide.md</code> (step-by-step) ·
+    <code>integration-guide.md</code> (hardware) ·
+    <code>raw-input-research.md</code> (2-player future)</footer>
+</div>
+
+</body>
+</html>

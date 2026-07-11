@@ -4,6 +4,20 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-07-12
+
+### Added
+- Documentation consolidated from the game projects (Spell Slinger), updated to
+  this package's current behavior (MnK-first policy, COM auto-detect):
+  `Documentation~/scene-setup-guide.md` (beginner click-by-click scene walkthrough,
+  Inspector field guide, troubleshooting), `Documentation~/architecture-map.md` +
+  `.html` (visual diagrams of the layer), and `Documentation~/raw-input-research.md`
+  (what Windows Raw Input is and when mouse-type guns would need it).
+- `Setup` sample now also ships `LightgunSmokeTest` — a drop-in component that
+  verifies the whole rig (crosshair, Fire/Reload events, per-gun recoil, hot-swap
+  logs) before any gameplay code exists, and doubles as the reference for how game
+  code should talk to the manager.
+
 ## [0.2.0] - 2026-07-08
 
 The **MnK-first + multiplayer** release: a single gun is left in whatever mode it

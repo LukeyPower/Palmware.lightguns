@@ -250,7 +250,8 @@ What a native game must provide:
   (`SetSindenMode`). While active, the system mouse is treated as the lightgun (`Owns(Mouse)`).
 
 Limit: **two-player** mouse-type guns need Windows Raw Input (two cursors can't share one OS
-mouse) — out of scope for this package.
+mouse) — out of scope for this package; the research on what that would take is in
+[`raw-input-research.md`](raw-input-research.md).
 
 ---
 

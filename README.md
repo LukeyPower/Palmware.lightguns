@@ -24,7 +24,10 @@ game code keys players by `InputDevice` — see the integration guide §5.
 > **Why this package exists** and the full design rationale live in
 > [`Documentation~/why-this-package.md`](Documentation~/why-this-package.md). Hardware
 > details and the per-gun protocols are in
-> [`Documentation~/integration-guide.md`](Documentation~/integration-guide.md).
+> [`Documentation~/integration-guide.md`](Documentation~/integration-guide.md). A
+> beginner click-by-click scene walkthrough is
+> [`Documentation~/scene-setup-guide.md`](Documentation~/scene-setup-guide.md), with visual
+> diagrams in [`Documentation~/architecture-map.md`](Documentation~/architecture-map.md).
 > Licensing is covered in [`Documentation~/licensing.md`](Documentation~/licensing.md).
 
 ## Requirements
@@ -67,11 +70,13 @@ this repo.)
 2. If using a Blamcon gun, install **`com.blamcon.lightguns`**. (Skip for RS3-/Sinden-only
    projects — the Blamcon assembly compiles itself out when the package is absent.)
 3. Import the **Setup** sample (*Package Manager → Palmware Lightguns → Samples → Import*)
-   to get `LightgunInputActions.inputactions`, or use your own action asset with
-   `Fire` / `Reload` / `Point` / `Submit` actions.
+   to get `LightgunInputActions.inputactions` (or use your own action asset with
+   `Fire` / `Reload` / `Point` / `Submit` actions) and `LightgunSmokeTest` (a drop-in
+   component that verifies the whole rig — crosshair, events, recoil, hot-swap).
 4. Create a GameObject, add **`LightgunManager`**, and assign the input action asset.
    Add the gun-module components you need next to it (`BlamconModule`, `BlamconSerial`,
-   `RetroShooterModule`, `SindenModule`). See the integration guide for scene wiring.
+   `RetroShooterModule`, `SindenModule`). The scene setup guide walks through this
+   click by click, including what every Inspector field does.
 
 ## Quick usage
 
