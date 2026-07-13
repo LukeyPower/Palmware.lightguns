@@ -166,5 +166,5 @@ flowchart LR
 | Blamcon serial companion | `Runtime/Blamcon/BlamconSerial.cs` |
 | Sinden border overlay | `Runtime/SindenBorder.cs` |
 | Binding table + smoke test | `Samples~/Setup/` (import via Package Manager) |
-| Blamcon HID device layout | the `com.blamcon.lightguns` package (separate dependency) |
+| Blamcon HID device layout | `Runtime/Blamcon/Device/` (vendored from `com.blamcon.lightguns`, MIT) |
 | Setup walkthrough | `Documentation~/scene-setup-guide.md` |

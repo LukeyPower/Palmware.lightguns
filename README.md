@@ -10,7 +10,7 @@ Supported guns:
 
 | Gun | Input | Feedback | Notes |
 |---|---|---|---|
-| **Blamcon** | USB-HID (MnK or Gamepad mode) | HID output reports **or** serial | Needs `com.blamcon.lightguns`; P1–P4 |
+| **Blamcon** | USB-HID (MnK or Gamepad mode) | HID output reports **or** serial | Device support bundled; P1–P4 |
 | **Retro Shooter RS3 "Reaper"** | USB-HID (MnK or joystick mode) | Serial COM port (auto-detected by USB VID/PID) | P1–P4 |
 | **Sinden** (and AimTrak / Gun4IR / mouse-type) | System mouse | Driver-side | White tracking border overlay; single player |
 
@@ -37,8 +37,9 @@ game code keys players by `InputDevice` — see the integration guide §5.
 - **API Compatibility Level = .NET Framework.** The RS3 and Blamcon-serial drivers use
   `System.IO.Ports`, which does **not** exist under .NET Standard. Set it in
   *Project Settings → Player → Other Settings → Api Compatibility Level → .NET Framework*.
-- For the Blamcon module only: the **`com.blamcon.lightguns`** package
-  (https://github.com/Props3D/UnityLightguns) and gun firmware **1.0.16+**.
+- For Blamcon guns: firmware **1.0.16+**. The device code (HID layout, FFB commands)
+  is bundled — vendored from [Props3D's `com.blamcon.lightguns`](https://github.com/Props3D/UnityLightguns)
+  under MIT; do **not** install that package alongside this one (duplicate types).
 
 ## Installing
 
@@ -67,13 +68,11 @@ this repo.)
 ## Project setup (once per project)
 
 1. Set **API Compatibility Level** to **.NET Framework** (see Requirements).
-2. If using a Blamcon gun, install **`com.blamcon.lightguns`**. (Skip for RS3-/Sinden-only
-   projects — the Blamcon assembly compiles itself out when the package is absent.)
-3. Import the **Setup** sample (*Package Manager → Palmware Lightguns → Samples → Import*)
+2. Import the **Setup** sample (*Package Manager → Palmware Lightguns → Samples → Import*)
    to get `LightgunInputActions.inputactions` (or use your own action asset with
    `Fire` / `Reload` / `Point` / `Submit` actions) and `LightgunSmokeTest` (a drop-in
    component that verifies the whole rig — crosshair, events, recoil, hot-swap).
-4. Create a GameObject, add **`LightgunManager`**, and assign the input action asset.
+3. Create a GameObject, add **`LightgunManager`**, and assign the input action asset.
    Add the gun-module components you need next to it (`BlamconModule`, `BlamconSerial`,
    `RetroShooterModule`, `SindenModule`). The scene setup guide walks through this
    click by click, including what every Inspector field does.
@@ -106,10 +105,10 @@ void OnReload(LightgunEventArgs args)
 
 - **`Palmware.Lightguns`** — core: manager, interfaces, `RetroShooterModule`,
   `SindenModule`, `SindenBorder`. Always compiles.
-- **`Palmware.Lightguns.Blamcon`** — `BlamconModule` + `BlamconSerial`. Guarded by the
-  `PALMWARE_BLAMCON` define, which is auto-set (via the asmdef's version define) only
-  when `com.blamcon.lightguns` is installed. If a Blamcon gun isn't recognized, confirm
-  that package is present and check the Console for a "define constraints" skip message.
+- **`Palmware.Lightguns.Blamcon`** — `BlamconModule` + `BlamconSerial`, plus the vendored
+  Blamcon device code (`Runtime/Blamcon/Device/` — HID layout, FFB commands, remap
+  processor; namespace `Blamcon.Lightguns`). Always compiles. Keeps the serial +
+  `unsafe` HID code out of the core assembly.
 
 ## Adding another gun
 

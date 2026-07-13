@@ -10,8 +10,9 @@ ever asks).*
 - **Both** things this package builds on are **MIT-licensed** — the most permissive common
   license. You are allowed to use, modify, and redistribute them, provided their copyright +
   permission notices are retained (done in `THIRD-PARTY-NOTICES.md`).
-- This package **does not redistribute** either dependency. It *depends on* the Blamcon
-  package (installed separately) and *reimplements* the RS3 protocol from an MIT example.
+- Since 0.4.0 this package **redistributes (vendors) the Blamcon package's Runtime code**
+  under its MIT terms, with the required notice retained in `THIRD-PARTY-NOTICES.md`.
+  The RS3 protocol remains a *reimplementation* from an MIT example (no code shipped).
 - The Blamcon **serial** protocol used here is Blamcon's **publicly published** serial-command
   reference — all protocol information came from public sources. Details below.
 
@@ -23,11 +24,14 @@ ever asks).*
 - License verified from the package's own `LICENSE.md`: **MIT**.
 - MIT grants use/copy/modify/merge/publish/distribute/sublicense/sell, on the sole condition
   that the copyright + permission notice ships "in all copies or substantial portions."
-- **How we use it:** `Palmware.Lightguns.Blamcon` references the package's `Blamcon.Lightguns`
-  assembly at compile time. We don't copy its source into this repo — the user installs the
-  Blamcon package themselves. Since we don't ship "copies or substantial portions," the notice
-  obligation is arguably not even triggered; we include the notice anyway (in
-  `THIRD-PARTY-NOTICES.md`) because it's courteous and unambiguously safe.
+- **How we use it (0.4.0+):** the package's `Runtime` source is **vendored** into this repo at
+  `Runtime/Blamcon/Device/`, from upstream tag `1.0.0`, with one functional change
+  (`allowUnsafeCode: true` — upstream's asmdef doesn't compile its own `unsafe` code as
+  shipped). This is squarely within MIT's grant (copy/modify/merge/distribute), and it
+  triggers MIT's one condition — the copyright + permission notice must ship with the code —
+  which is satisfied in `THIRD-PARTY-NOTICES.md` (provenance, commit, and modification are
+  recorded there too). Prior to 0.4.0 we only referenced the package's assembly and the user
+  installed it separately.
 
 ### 2. Retro Shooter example game — MIT (© 2025 Grimbar Interactive LLC)
 

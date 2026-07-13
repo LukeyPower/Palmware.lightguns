@@ -73,18 +73,16 @@ buttons and axes well, but lightguns have extras it has no concept of: recoil, s
 ammo-LED counts, serial COM ports, per-vendor force-feedback handshakes. The manager gives
 those a home while still using Input System actions for the plain input.
 
-## Why Blamcon is a separate, optional assembly
+## Why Blamcon is a separate assembly
 
-The Blamcon module depends on the third-party `com.blamcon.lightguns` package. If all the
-code lived in one assembly, **every** project — even an RS3-only or Sinden-only one — would
-be forced to install Blamcon or fail to compile.
-
-So the Blamcon code (`BlamconModule`, `BlamconSerial`) lives in its own assembly,
-**`Palmware.Lightguns.Blamcon`**, guarded by a `PALMWARE_BLAMCON` define. That define is set
-automatically (an asmdef "version define" keyed to the Blamcon package) **only when the
-Blamcon package is present**. Package absent → the assembly is skipped, and the core
-(manager, RS3, Sinden) still compiles and runs. This is Unity's documented pattern for
-optional package integrations.
+Historically (≤ 0.3.0) the Blamcon module depended on the third-party
+`com.blamcon.lightguns` package, so it lived in its own assembly guarded by a
+`PALMWARE_BLAMCON` version-define — projects without that package simply skipped the
+assembly. Since **0.4.0** the Blamcon device code is vendored into this package
+(`Runtime/Blamcon/Device/`, MIT — see `THIRD-PARTY-NOTICES.md`), so the define and the
+external dependency are gone and the assembly always compiles. The split assembly
+remains because it's still a useful boundary: it keeps the `unsafe` HID event handling
+and the `System.IO.Ports` precompiled reference out of the core assembly.
 
 ## Why .NET Framework is required
 

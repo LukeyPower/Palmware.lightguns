@@ -94,8 +94,8 @@ LightgunManager.Update() runs each frame and asks around:
 ## Part 2 — Building it in the editor
 
 ### Step 0 — Install the package and import the Setup sample
-Install `com.palmware.lightguns` (git URL or local path — see the README), plus
-`com.blamcon.lightguns` if you're supporting Blamcon guns. Then in
+Install `com.palmware.lightguns` (git URL or local path — see the README) — Blamcon
+device support is bundled, so that's the only package needed. Then in
 **Package Manager → Palmware Lightguns → Samples**, click **Import** on the **Setup** sample.
 That copies two things into your project under
 `Assets/Samples/Palmware Lightguns/<version>/Setup/`:
@@ -302,7 +302,7 @@ Rules that keep a project clean:
 | `LightgunManager.Instance` is null | No `Lightgun Manager` object in the loaded scene — it must be in the boot scene |
 | A gun gives input but never recoils | Its module component is missing/disabled on the GameObject (Step 5) — for a Blamcon in MnK mode, `BlamconSerial` specifically |
 | A single gun plays "as a mouse" (no per-device aim) | That's the MnK-first default, not a bug — recoil still routes over serial. Want per-device mode always? Set *Mode Switch Policy* = `AlwaysSwitch` (Blamcon) / tick *Force Joystick Mode* (RS3) |
-| `BlamconModule` never connects | Gun is in Mouse/Keyboard mode and `BlamconSerial` isn't in the scene (or policy is `KeepMode`); firmware must be 1.0.16+. Also confirm the `com.blamcon.lightguns` package is installed — without it the whole Blamcon assembly is skipped (Console shows a define-constraints message) |
+| `BlamconModule` never connects | Gun is in Mouse/Keyboard mode and `BlamconSerial` isn't in the scene (or policy is `KeepMode`); firmware must be 1.0.16+ |
 | Blamcon recoils on EVERY pull, even dry fire | *Take FFB Control* is off, or firmware too old — the firmware is auto-kicking by itself |
 | Blamcon kicks TWICE per shot (MnK mode) | Firmware trigger-recoil + our serial recoil are both firing — disable trigger recoil in ARC, or turn off *Serial Recoil In Mnk* |
 | RS3 shoots but no recoil/slide | Auto-detect missed the COM port (check Device Manager → Ports and set *Port Name* manually), or another app has the port open |

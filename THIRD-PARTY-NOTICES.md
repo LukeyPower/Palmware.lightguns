@@ -5,10 +5,10 @@ third-party works. Both are distributed under the MIT License, which permits use
 modification, and redistribution provided the copyright and permission notice are
 retained. Those notices are reproduced below.
 
-Palmware Lightguns does **not** bundle either project — it depends on the Blamcon
-package being installed separately, and the Retro Shooter code below was written
-from a reference example, not copied wholesale. These notices are included for
-attribution and to document provenance.
+The Blamcon runtime code is **bundled (vendored)** into this package under
+`Runtime/Blamcon/Device/`, as permitted by its MIT License. The Retro Shooter code
+below was written from a reference example, not copied wholesale. These notices are
+included to satisfy the license conditions and to document provenance.
 
 ---
 
@@ -16,10 +16,15 @@ attribution and to document provenance.
 
 - Author: Props3D
 - Source: https://github.com/Props3D/UnityLightguns
-- Relationship: **runtime dependency.** `Palmware.Lightguns.Blamcon` references this
-  package's `Blamcon.Lightguns` assembly (device layout, HID force-feedback commands,
-  position remap processor). The Blamcon package is installed separately by the user;
-  its code is not redistributed here.
+- Relationship: **vendored.** The package's `Runtime` code (device layout, HID
+  force-feedback commands, position remap processor) is redistributed inside this
+  package at `Runtime/Blamcon/Device/`, compiled into the `Palmware.Lightguns.Blamcon`
+  assembly. Vendored from tag `1.0.0` (commit `cadbb83`) with one modification:
+  compiled with `allowUnsafeCode: true` (upstream's asmdef ships `false`, but its
+  `InputEventPtr` handlers use `unsafe` and do not compile as shipped). The
+  `Blamcon.Lightguns` namespace is preserved. To pull a future upstream release,
+  diff https://github.com/Props3D/UnityLightguns against `Runtime/Blamcon/Device/`
+  and re-apply this note.
 
 ```
 The MIT License (MIT)

@@ -4,6 +4,27 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-13
+
+The **single-dependency** release: installing this package is now all a project
+needs — no separate `com.blamcon.lightguns` install.
+
+### Changed
+- **Blamcon device code is now vendored** (MIT, © Props3D — see
+  `THIRD-PARTY-NOTICES.md`): the `com.blamcon.lightguns` Runtime code (HID device
+  layout, force-feedback commands, position remap processor) ships inside this
+  package at `Runtime/Blamcon/Device/`, vendored from upstream tag `1.0.0` plus the
+  `allowUnsafeCode` compile fix. The `Blamcon.Lightguns` namespace is unchanged, so
+  existing game code (`using Blamcon.Lightguns;`) compiles as-is.
+- `Palmware.Lightguns.Blamcon` assembly always compiles: the `PALMWARE_BLAMCON`
+  define, its version-define on `com.blamcon.lightguns`, and the external assembly
+  reference are gone.
+
+### Migration
+- Remove the embedded/installed `com.blamcon.lightguns` package from the project —
+  keeping both installed will fail to compile with duplicate `Blamcon.Lightguns`
+  type definitions.
+
 ## [0.3.0] - 2026-07-12
 
 ### Added

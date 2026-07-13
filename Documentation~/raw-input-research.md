@@ -105,7 +105,7 @@ raw input too
 ### Blamcon — raw input NOT needed (in gamepad mode); that's why it "just worked"
 In **Gamepad mode** the Blamcon enumerates as its own HID gamepad — VID `0x3673`, PID
 `0x0100`–`0x0103` for P1–P4 — reporting **absolute position in the HID report itself**. The
-`com.blamcon.lightguns` package registers a custom Input System layout that claims exactly those
+bundled Blamcon device code (vendored from `com.blamcon.lightguns`) registers a custom Input System layout that claims exactly those
 devices, and the `AbsolutePositionRemapProcessor` maps the raw 0–32768 report values to screen
 pixels. So the game gets per-gun identity AND absolute aim through Unity's normal input path —
 the two things raw input exists to provide, already solved at the HID layout level. **That is

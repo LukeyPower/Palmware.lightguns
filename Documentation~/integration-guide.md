@@ -30,7 +30,8 @@ bindings, not touching gameplay code.
 ### Recognition
 The gun presents to USB in three emulation modes (set in Blamcon ARC, or over serial):
 **Mouse+Keyboard (composite device)**, **Gamepad**, or **Joystick**. The
-`com.blamcon.lightguns` package registers a `BlamconLightgunHID` layout that matches **only**:
+bundled Blamcon device code (vendored from `com.blamcon.lightguns`) registers a
+`BlamconLightgunHID` layout that matches **only**:
 - `vendorId 0x3673`, `productId 0x0100`–`0x0103` (P1–P4), `usagePage 0x01`, `usage 0x05` (Gamepad).
 
 So the gun must be in **Gamepad mode** for the package (and `BlamconModule`) to claim it.
