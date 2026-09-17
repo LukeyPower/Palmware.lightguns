@@ -39,7 +39,9 @@ game code keys players by `InputDevice` — see the integration guide §5.
   *Project Settings → Player → Other Settings → Api Compatibility Level → .NET Framework*.
 - For Blamcon guns: firmware **1.0.16+**. The device code (HID layout, FFB commands)
   is bundled — vendored from [Props3D's `com.blamcon.lightguns`](https://github.com/Props3D/UnityLightguns)
-  under MIT; do **not** install that package alongside this one (duplicate types).
+  2.0.0 under MIT; do **not** install that package alongside this one (duplicate types).
+  Firmware 2.1.0+/4.0.0+ unlock extra upstream features (mouse-mode HID feedback, Bluetooth) —
+  see the firmware table in the integration guide, §2.
 
 ## Installing
 

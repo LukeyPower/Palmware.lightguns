@@ -19,12 +19,13 @@ included to satisfy the license conditions and to document provenance.
 - Relationship: **vendored.** The package's `Runtime` code (device layout, HID
   force-feedback commands, position remap processor) is redistributed inside this
   package at `Runtime/Blamcon/Device/`, compiled into the `Palmware.Lightguns.Blamcon`
-  assembly. Vendored from tag `1.0.0` (commit `cadbb83`) with one modification:
-  compiled with `allowUnsafeCode: true` (upstream's asmdef ships `false`, but its
-  `InputEventPtr` handlers use `unsafe` and do not compile as shipped). The
+  assembly. Vendored from version `2.0.0` (commit `1e8992d`; upstream tagged it
+  `2.0.0-rc.0`) with the source files unmodified. Upstream's `Runtime/Lightguns/`
+  tree is copied as-is except its asmdef and `AssemblyInfo.cs` (which only exposes
+  internals to upstream's test assembly); tests and samples are not bundled. The
   `Blamcon.Lightguns` namespace is preserved. To pull a future upstream release,
-  diff https://github.com/Props3D/UnityLightguns against `Runtime/Blamcon/Device/`
-  and re-apply this note.
+  diff https://github.com/Props3D/UnityLightguns `Runtime/Lightguns/` against
+  `Runtime/Blamcon/Device/` and update this note.
 
 ```
 The MIT License (MIT)

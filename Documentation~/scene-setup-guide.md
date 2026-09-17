@@ -172,8 +172,13 @@ tooltip in the Inspector — hover for the details.
 
 **BlamconModule** — defaults are correct; just know what they mean:
 - *Take FFB Control* (on): on connect, tells the gun "the game is in charge of recoil now".
-  Without it the gun's firmware auto-kicks on every trigger pull, even dry fires. Requires gun
+  Without it the gun's firmware auto-kicks on every trigger pull, even dry fires. Control is
+  handed back when the module is disabled, play mode stops or the game quits. Requires gun
   firmware 1.0.16+.
+- *Release On Focus Loss* (on): also hands control back while the game window isn't focused
+  (e.g. alt-tabbed, or clicking into the Inspector in the Editor) and retakes it on focus.
+- Don't also add Blamcon's own *Lightgun Session* component — it does the same job, so every
+  control command would be sent twice.
 - *Control Ammo* (off): turn on if you want the gun's ammo LED bar driven by
   `Recoil`/`SetAmmoAll` calls.
 - *Recoil Pulses / Rumble Pulses*: feedback strength per event.
@@ -303,7 +308,7 @@ Rules that keep a project clean:
 | A gun gives input but never recoils | Its module component is missing/disabled on the GameObject (Step 5) — for a Blamcon in MnK mode, `BlamconSerial` specifically |
 | A single gun plays "as a mouse" (no per-device aim) | That's the MnK-first default, not a bug — recoil still routes over serial. Want per-device mode always? Set *Mode Switch Policy* = `AlwaysSwitch` (Blamcon) / tick *Force Joystick Mode* (RS3) |
 | `BlamconModule` never connects | Gun is in Mouse/Keyboard mode and `BlamconSerial` isn't in the scene (or policy is `KeepMode`); firmware must be 1.0.16+ |
-| Blamcon recoils on EVERY pull, even dry fire | *Take FFB Control* is off, or firmware too old — the firmware is auto-kicking by itself |
+| Blamcon recoils on EVERY pull, even dry fire | *Take FFB Control* is off, or firmware too old — the firmware is auto-kicking by itself. Also expected while the game window is unfocused (*Release On Focus Loss*) — click back into the Game view |
 | Blamcon kicks TWICE per shot (MnK mode) | Firmware trigger-recoil + our serial recoil are both firing — disable trigger recoil in ARC, or turn off *Serial Recoil In Mnk* |
 | RS3 shoots but no recoil/slide | Auto-detect missed the COM port (check Device Manager → Ports and set *Port Name* manually), or another app has the port open |
 | RS3 crosshair jitters | Raise *Aim Smooth Time* (try 0.05–0.08) |

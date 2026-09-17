@@ -25,9 +25,11 @@ ever asks).*
 - MIT grants use/copy/modify/merge/publish/distribute/sublicense/sell, on the sole condition
   that the copyright + permission notice ships "in all copies or substantial portions."
 - **How we use it (0.4.0+):** the package's `Runtime` source is **vendored** into this repo at
-  `Runtime/Blamcon/Device/`, from upstream tag `1.0.0`, with one functional change
-  (`allowUnsafeCode: true` — upstream's asmdef doesn't compile its own `unsafe` code as
-  shipped). This is squarely within MIT's grant (copy/modify/merge/distribute), and it
+  `Runtime/Blamcon/Device/`, currently from upstream **2.0.0** (commit `1e8992d`; 0.4.0 shipped
+  1.0.0). The source files are unmodified; only upstream's asmdef, `AssemblyInfo.cs` (test
+  visibility) and tests/samples are left out — the code compiles into our own
+  `Palmware.Lightguns.Blamcon` assembly (`allowUnsafeCode: true`, which upstream now also
+  sets). This is squarely within MIT's grant (copy/modify/merge/distribute), and it
   triggers MIT's one condition — the copyright + permission notice must ship with the code —
   which is satisfied in `THIRD-PARTY-NOTICES.md` (provenance, commit, and modification are
   recorded there too). Prior to 0.4.0 we only referenced the package's assembly and the user

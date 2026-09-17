@@ -46,6 +46,7 @@ namespace Blamcon.Lightguns.LowLevel
         // Define the raw data field. Mapping D-pad directions will happen in the class.
         [FieldOffset(5)]
         [InputControl(name = "dpad", layout = "Dpad", usage = "Hatswitch", displayName = "D-Pad", offset = 5, format = "BIT", sizeInBits = 4)] // sizeInBits should match the data size used for dpad
+        // Diagonal hat values (2, 4, 6, 8) are intentionally not supported and map to no direction.
         [InputControl(name = "dpad/up", layout = "DiscreteButton", offset = 0, bit = 0, format = "BIT", sizeInBits = 4, parameters = "minValue=1,maxValue=1")]
         [InputControl(name = "dpad/right", layout = "DiscreteButton", offset = 0, bit = 0, format = "BIT", sizeInBits = 4, parameters = "minValue=3,maxValue=3")]
         [InputControl(name = "dpad/down", layout = "DiscreteButton", offset = 0, bit = 0, format = "BIT", sizeInBits = 4, parameters = "minValue=5,maxValue=5")]
@@ -152,11 +153,61 @@ namespace Blamcon.Lightguns
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Init() {}
 
+        /// <summary>
+        /// The gun's 0-based player index, from its USB product ID: 0 is player 1. -1 if the device
+        /// doesn't carry a Blamcon product ID.
+        /// </summary>
+        public int playerIndex { get; private set; } = -1;
+
+        /// <summary>Increases with every Blamcon device created; the highest is the most recently added.</summary>
+        internal long creationOrder { get; private set; }
+
         /// <inheritdoc />
         protected override void FinishSetup()
         {
             base.FinishSetup();
+            playerIndex = BlamconDevices.PlayerIndexFrom(description);
+            creationOrder = BlamconDevices.NextCreationOrder();
         }
+
+        /// <summary>
+        /// The force feedback interface for a player's gun, in either mode: the gun's gamepad device if it
+        /// is in gamepad mode, otherwise its mouse-mode device.
+        /// </summary>
+        /// <param name="player">0-based player index: 0 is player 1.</param>
+        /// <returns>
+        /// The gun's <see cref="IForceFeedback"/>, or null if the player has no gun that can take feedback.
+        /// A gun in mouse mode on firmware without the vendor-defined collection is invisible to Unity, so
+        /// it returns null too.
+        /// </returns>
+        /// <remarks>
+        /// If a player has more than one matching device, the most recently added wins. After a firmware
+        /// update Unity can keep listing the gun's old devices until the Editor restarts, and those fail
+        /// every command.
+        /// </remarks>
+        public static IForceFeedback GetForceFeedback(int player) =>
+            BlamconDevices.SelectFeedbackDevice(InputSystem.devices, player) as IForceFeedback;
+
+        /// <summary>
+        /// Sends a HID output report to a player's gun, in either mode. Use this to combine several effects
+        /// in one report, which the gun handles better than separate calls sent back to back.
+        /// </summary>
+        /// <param name="player">0-based player index: 0 is player 1.</param>
+        /// <param name="command">The HID output report.</param>
+        /// <returns>False if the player has no gun that can take feedback, or the send failed.</returns>
+        public static bool SendCommand(int player, ref BlamconHIDOutputReport command)
+        {
+            switch (BlamconDevices.SelectFeedbackDevice(InputSystem.devices, player))
+            {
+                case BlamconLightgunHID gun:
+                    return gun.SendCommand(ref command);
+                case BlamconMouseModeDevice mouseMode:
+                    return mouseMode.SendCommand(ref command);
+                default:
+                    return false;
+            }
+        }
+
 
         unsafe bool PreProcessEvent(InputEventPtr eventPtr)
         {
@@ -169,12 +220,9 @@ namespace Blamcon.Lightguns
             if (stateEvent->stateFormat != LightgunHIDInputReport.kFormat || size < sizeof(LightgunHIDInputReport))
                 return false; // skip unrecognized state events otherwise they will corrupt control states
 
-            if (size < sizeof(LightgunHIDInputReport))
-                return false;
-
             var binaryData = (byte*)stateEvent->state;
 
-            // report id
+            // report id - firmware uses 1 (P1), 3 (P2), 4 (P3), 5 (P4)
             switch (binaryData[0])
             {
                 // normal USB report
@@ -184,19 +232,19 @@ namespace Blamcon.Lightguns
                 case 4:
                 case 5:
                 {
-                    // if (size < sizeof(LightgunHIDInputReport))
-                    //     return false;
                     var data = ((LightgunHIDInputReport*)(binaryData))->ToHIDInputReport();
                     *((BlamconLightgunState*)stateEvent->state) = data;
                     stateEvent->stateFormat = BlamconLightgunState.kFormat;
                     return true;
                 }
-                default: {
-                    var data = ((LightgunHIDInputReport*)(binaryData))->EmptyHIDInputReport();
-                    *((BlamconLightgunState*)stateEvent->state) = data;
-                    stateEvent->stateFormat = BlamconLightgunState.kFormat;
-                    return true; // skip unrecognized reportId
-                }
+                // Unrecognized report ids are dropped, so the device keeps its last good state.
+                // Previously this wrote a replacement state from LightgunHIDInputReport.EmptyHIDInputReport()
+                // (reportId = 0x05, buttons = 0x01, hat = 0, position/secondaryMotion = zero), which
+                // registered a phantom buttonWest (trigger) press, released held buttons and snapped the
+                // cursor to (0,0). To restore a "reset to neutral" behavior instead, write a zeroed
+                // BlamconLightgunState here (buttons = 0) and return true.
+                default:
+                    return false; // skip unrecognized reportId
             }
         }
 
@@ -219,171 +267,42 @@ namespace Blamcon.Lightguns
         /// Use to send HID output report to this specific device.
         /// </summary>
         /// <param name="command">The HID output report.</param>
-        public bool SendCommand(ref BlamconHIDOutputReport command)
-        {
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send command to {name}. Error: {result}");
-            return result >= 0;
-        }
-        /// <summary>
-        /// Use to send recoil command to this specific device.
-        /// </summary>
-        /// <param name="command">The recoil command.</param>
-        public bool SendCommand(ref BlamconRecoilCommand command)
-        {
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send command to {name}. Error: {result}");
-            return result >= 0;
-        }
-        /// <summary>
-        /// Use to send recoil command to this specific device.
-        /// </summary>
-        /// <param name="command">The rumble command.</param>
-        public bool SendCommand(ref BlamconRumbleCommand command)
-        {
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send command to {name}. Error: {result}");
-            return result >= 0;
-        }
-        /// <summary>
-        /// Use to send recoil command to this specific device.
-        /// </summary>
-        /// <param name="command">The LED command.</param>
-        public bool SendCommand(ref BlamconLEDCommand command)
-        {
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send command to {name}. Error: {result}");
-            return result >= 0;
-        }
-        /// <summary>
-        /// Use to send ammo command to this specific device.
-        /// </summary>
-        /// <param name="command">The ammo command.</param>
-        public bool SendCommand(ref BlamconAmmoCommand command)
-        {
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool SendCommand(ref BlamconHIDOutputReport command) =>
+            BlamconForceFeedback.Send(this, ref command, "command");
 
         /// <inheritdoc />
-        public bool EnableFFBControl(bool recoil = true, bool rumble = true, bool led = true, bool ammo = false)
-        {
-            var command = BlamconHIDOutputReport.Create(recoil, rumble, led, ammo);
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send FFB control command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool EnableFFBControl(bool recoil = true, bool rumble = true, bool led = true, bool ammo = false) =>
+            BlamconForceFeedback.EnableFFBControl(this, recoil, rumble, led, ammo);
         /// <inheritdoc />
-        public bool EnableAmmoFFBControl(bool ammo = true)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.EnableAmmoFFBControl(ammo);
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send Ammo FFB control command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool EnableAmmoFFBControl(bool ammo = true) =>
+            BlamconForceFeedback.EnableAmmoFFBControl(this, ammo);
 
         /// <inheritdoc />
-        public bool ActivateRumble(int pulses = 1)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.SetRumble(pulses);
-
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send rumble command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool ActivateRumble(int pulses = 1) =>
+            BlamconForceFeedback.ActivateRumble(this, pulses);
         /// <inheritdoc />
-        public bool ActivateRumble(int pulse, int on, int off)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.SetRumble(pulse, on, off);
-
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send rumble command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool ActivateRumble(int pulse, int on, int off) =>
+            BlamconForceFeedback.ActivateRumble(this, pulse, on, off);
         /// <inheritdoc />
-        public bool ActivateRecoil(int pulse = 1)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.SetRecoil(pulse);
-
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send recoil command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool ActivateRecoil(int pulse = 1) =>
+            BlamconForceFeedback.ActivateRecoil(this, pulse);
         /// <inheritdoc />
-        public bool ActivateRecoil(int pulse, int on, int off)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.SetRecoil(pulse, on, off);
-
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send recoil command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool ActivateRecoil(int pulse, int on, int off) =>
+            BlamconForceFeedback.ActivateRecoil(this, pulse, on, off);
         /// <inheritdoc />
-        public bool ActivateLED(int index, Color color)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.SetColor(index, color);
-
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send LED command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool ActivateLED(int index, Color color) =>
+            BlamconForceFeedback.ActivateLED(this, index, color);
         /// <inheritdoc />
-        public bool ActivateLED(int index, Color color, int pulse)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.SetColor(index, color, pulse);
-
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send LED command to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool ActivateLED(int index, Color color, int pulse) =>
+            BlamconForceFeedback.ActivateLED(this, index, color, pulse);
         /// <inheritdoc />
-        public bool SendAmmoCount(int remaining)
-        {
-            var command = BlamconHIDOutputReport.Create();
-            command.SetAmmo(remaining);
-
-            // Send the command to the device
-            long result = ExecuteCommand(ref command);
-            if (result < 0)
-                Debug.LogError($"Failed to send Ammo count to {name}. Error: {result}");
-            return result >= 0;
-        }
+        public bool SendAmmoCount(int remaining) =>
+            BlamconForceFeedback.SendAmmoCount(this, remaining);
 
 
+        // Raw gamepad input report as sent by the firmware (GamepadReport in gamepad.h).
+        // Axes are 32-bit on the wire with a logical range of [0, 32767]; only the low
+        // 16 bits are read here, which is lossless for that range.
         [StructLayout(LayoutKind.Explicit, Size = 22)]
         internal struct LightgunHIDInputReport
         {
@@ -399,17 +318,6 @@ namespace Blamcon.Lightguns
             [FieldOffset(18)] public short rightStickY;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public BlamconLightgunState EmptyHIDInputReport()
-            {
-                return new BlamconLightgunState
-                {
-                    reportId = 0x05,
-                    buttons = 0x01,
-                    hat = 0,
-                    position = Vector2.zero,
-                    secondaryMotion = Vector2.zero
-                };
-            }
             public BlamconLightgunState ToHIDInputReport()
             {
                 return new BlamconLightgunState

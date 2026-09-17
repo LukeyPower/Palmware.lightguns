@@ -44,6 +44,11 @@ Why the other modes don't produce a `BlamconLightgunHID`:
   `<Mouse>/leftButton` fire), and recoil/rumble/LED are still reachable over the serial config
   port (§2 serial). What MnK mode loses for good: HID absolute aim, per-player identity,
   multiplayer.
+  *Firmware 2.1.0+* additionally exposes a vendor-defined HID collection (usage page `0xFF00`,
+  usage `0x01`) in mouse mode, which the vendored code (upstream 2.0) surfaces as an output-only
+  `BlamconMouseModeDevice` — reachable via `BlamconLightgunHID.GetForceFeedback(player)`. It is
+  **not** a `Lightgun` and has no aim/buttons. We don't drive it: MnK-mode feedback stays on the
+  serial port, which works on every firmware, and driving both would double-kick.
 - **Joystick mode**: the package registers no layout for the joystick usage, so it's equally
   invisible. Gamepad mode is the only mode `BlamconModule` sees.
 
@@ -52,6 +57,15 @@ pointer-like device with an absolute `position` without touching the OS cursor �
 makes 4 simultaneous guns possible (distinct P1–P4 product IDs, no fighting over one cursor).
 
 Requirements: **Unity 6**, **Input System 1.14+**, gun firmware **1.0.16+**.
+
+Firmware compatibility (from upstream 2.0 docs; update firmware with Blamcon ARC):
+
+| Feature | Firmware |
+|---|---|
+| Aim, buttons and HID force feedback in Gamepad mode over USB | 1.0.16+ |
+| HID force feedback in mouse mode over USB (not used by this package) | 2.1.0+ |
+| Rumble/LED periods that are exact multiples of 256 ms (older firmware silently drops them) | 2.1.0+ |
+| HID force feedback over Bluetooth Classic (either mode) | 4.0.0+ |
 
 ### The serial configuration port (present in EVERY emulation mode)
 
@@ -129,15 +143,33 @@ already remapped to screen pixels by the package's `AbsolutePositionRemapProcess
 aim action to `<LightGun>/position`.
 
 ### Force feedback (HID output reports)
-Via `BlamconLightgunHID`:
+Via `BlamconLightgunHID` (all feedback is HID output report `0x10`, `BlamconHIDOutputReport`):
 - `EnableFFBControl(recoil, rumble, led, ammo)` — hand control to the game so the gun only acts
   on game commands (otherwise firmware auto-recoils on every trigger pull). Call on connect;
-  **re-send on hot-plug** (`OnDeviceChange`). Requires firmware 1.0.16+.
-- `ActivateRecoil(pulses)`, `ActivateRumble(pulses)`, `SendAmmoCount(n)`, LED color commands.
-- **One IOCTL at a time** (upstream limitation): the driver services one feedback command at a
+  **re-send on hot-plug** (`OnDeviceChange`); **hand it back** on quit/disable (and ideally on
+  focus loss) or the gun stays silent on trigger pulls outside the game. Requires firmware
+  1.0.16+. Note `EnableFFBControl` sets all four components — passing `ammo: false` actively
+  *releases* ammo control. `BlamconModule` instead builds a report that touches only the ticked
+  components.
+- `ActivateRecoil(pulses)`, `ActivateRumble(pulses)`, `SendAmmoCount(n)`, `ActivateLED(...)`.
+- **One command at a time** (upstream limitation): the gun services one feedback command at a
   time; back-to-back commands are silently dropped. To fire several effects together (recoil +
   ammo), pack them into a single `BlamconHIDOutputReport` (`SetRecoil` + `SetAmmo` + …) and send
   with `SendCommand(ref cmd)`. `BlamconModule.Recoil()` does this when ammo control is on.
+- **Find guns by player, not `InputSystem.GetDevice<BlamconLightgunHID>()`**: that returns only
+  the first gun, and after a firmware update Unity can keep the gun's old, dead device listed
+  (every command to it fails). Use `BlamconLightgunHID.GetForceFeedback(player)` /
+  `SendCommand(player, ref report)` (most recently added device wins) and `gun.playerIndex`
+  (0 = P1) to identify the gun that fired.
+- Upstream 2.0 **removed** `BlamconRecoilCommand` / `BlamconRumbleCommand` / `BlamconLEDCommand`
+  / `BlamconAmmoCommand` — they never reached the gun (Unity pads output commands to 40 bytes;
+  the firmware only accepts reports `0x20`–`0x23` at their exact size). Use
+  `BlamconHIDOutputReport` (`SetRecoil`/`SetRumble`/`SetColor`/`SetAmmo`).
+- Firmware timing limits (clamped by the report): recoil 15–200 ms on / 45–200 ms off, rumble
+  100–2400 ms, LED flash 20–5000 ms. Ammo counts clamp to 0–255.
+- **Don't add upstream's `Lightgun Session` component** (*Add Component → Blamcon → Lightgun
+  Session*, bundled with the vendored code) next to `BlamconModule`: both take FFB control, so
+  every control command is sent twice.
 
 ### Gotchas
 - Gamepad mode does **not** drive the OS mouse — read `<LightGun>/position`, not `Mouse.current`.

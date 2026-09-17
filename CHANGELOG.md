@@ -4,6 +4,42 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-09-17
+
+Vendored Blamcon device code updated from upstream **1.0.0 → 2.0.0** (Props3D, MIT).
+
+### Fixed (from upstream 1.1.0 / 2.0.0)
+- A Blamcon input report with an unrecognized report ID no longer registers a phantom
+  trigger press, releases held buttons and snaps aim to (0,0) — which surfaced as a stray
+  `FirePressed` in the corner of the screen. Such reports are now dropped.
+- Ammo counts clamp to 0–255 instead of wrapping (256 no longer shows as 0).
+- Recoil/rumble/LED timing clamps match firmware 3.0 limits.
+
+### Changed
+- `BlamconModule` resolves guns **per player** (`BlamconLightgunHID.GetForceFeedback(player)`,
+  `playerIndex`) instead of `InputSystem.GetDevice<BlamconLightgunHID>()` / every listed device,
+  so a stale device left over from a firmware update no longer swallows commands or logs errors.
+- `BlamconModule` now **hands FFB control back** when disabled, when play mode stops and on quit,
+  and (new *Release On Focus Loss*, default on) while the app lacks focus — previously a
+  gamepad-mode gun was left under game control after the game closed. Take/release only touches
+  the ticked components, so leaving *Control Ammo* off no longer actively releases ammo control.
+- Upstream's `allowUnsafeCode` fix landed, so the vendored sources are now unmodified.
+- `package.json` now declares `com.unity.ugui` (2.0.0), which `SindenBorder` has always used —
+  projects without uGUI installed previously failed to compile the package.
+
+### Added (upstream, bundled but not used by the modules)
+- `BlamconMouseModeDevice` — HID force feedback for mouse-mode guns on firmware 2.1.0+.
+  MnK-mode feedback still goes over serial (`BlamconSerial`).
+- `BlamconLightgunHID.GetForceFeedback(player)`, `SendCommand(player, ref report)`, public
+  `playerIndex`.
+- `LightgunSession` component. **Don't add it alongside `BlamconModule`** — both take FFB control.
+
+### Removed (upstream, breaking for direct callers)
+- `BlamconRecoilCommand`, `BlamconRumbleCommand`, `BlamconLEDCommand`, `BlamconAmmoCommand` and
+  their `SendCommand` overloads. They never reached the gun. Use `BlamconHIDOutputReport`
+  (`SetRecoil`/`SetRumble`/`SetColor`/`SetAmmo`) or the `IForceFeedback` methods. Code that only
+  talks to `LightgunManager` is unaffected.
+
 ## [0.4.0] - 2026-07-13
 
 The **single-dependency** release: installing this package is now all a project

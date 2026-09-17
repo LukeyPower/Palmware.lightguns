@@ -1,7 +1,7 @@
 {
   "name": "com.palmware.lightguns",
   "displayName": "Palmware Lightguns",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "unity": "6000.0",
   "description": "A device-agnostic lightgun integration layer for Unity's Input System. One LightgunManager routes aim, fire/reload events and physical feedback (recoil, rumble, ammo LEDs, slide return) to per-gun modules — Blamcon (USB-HID), Retro Shooter RS3 Reaper (serial), and Sinden/mouse-emulating guns — so game code never has to know which gun is connected. Blamcon device support (MIT, Props3D) is bundled; no other lightgun package is needed.\n\nRequires: Input System, and .NET Framework API compatibility level (System.IO.Ports).",
   "keywords": [
@@ -18,7 +18,8 @@
     "name": "Palmware"
   },
   "dependencies": {
-    "com.unity.inputsystem": "1.14.0"
+    "com.unity.inputsystem": "1.14.0",
+    "com.unity.ugui": "2.0.0"
   },
   "samples": [
     {
