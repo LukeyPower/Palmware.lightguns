@@ -257,6 +257,7 @@ namespace Palmware.Lightguns
             _lastFireTime = Time.unscaledTime;
 
             var device = ctx.control.device;
+            RefreshAim(device);
             // Per-device aim: in multiplayer each gun's shot lands where THAT gun
             // points, not where the shared crosshair is.
             var args = new LightgunEventArgs(device, FindOwner(device), GetAimFor(device));
@@ -272,6 +273,7 @@ namespace Palmware.Lightguns
             if (ctx.ReadValue<float>() < 0.5f) return;
 
             var device = ctx.control.device;
+            RefreshAim(device);
             ReloadPressed?.Invoke(new LightgunEventArgs(device, FindOwner(device), GetAimFor(device)));
         }
 
@@ -307,7 +309,22 @@ namespace Palmware.Lightguns
         //  Aim arbitration — whichever source MOVED most recently owns the
         //  crosshair, and keeps it until another source moves.
         // -----------------------------------------------------------------------
-        private void Update()
+        private void Update() => UpdateAim();
+
+        // Input callbacks run before Update, so a gun that moved and fired in the same
+        // frame would otherwise shoot at last frame's AimPosition. Read the aim first.
+        private void RefreshAim(InputDevice firedBy)
+        {
+            // The mouse, or a gun in mouse mode: its own pointer position is where it fired.
+            if (mouseAim && firedBy is Pointer pointer)
+            {
+                AimPosition = pointer.position.ReadValue();
+                _aimOwner = null;
+            }
+            UpdateAim();
+        }
+
+        private void UpdateAim()
         {
             if (mouseAim && Mouse.current != null &&
                 Mouse.current.delta.ReadValue().sqrMagnitude > 0f)
