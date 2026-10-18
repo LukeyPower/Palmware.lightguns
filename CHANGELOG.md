@@ -4,6 +4,14 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-18
+
+### Fixed
+- A shot fired in the same frame the gun moved used the previous frame's aim. Input callbacks run before
+  `Update`, where `AimPosition` was refreshed, so a quick move-and-fire with the mouse or a gun in mouse mode
+  landed where the gun had pointed one frame earlier. `FirePressed` and `ReloadPressed` now read the aim first:
+  the firing pointer's own position, then the gun modules.
+
 ## [0.5.0] - 2026-09-17
 
 Vendored Blamcon device code updated from upstream **1.0.0 → 2.0.0** (Props3D, MIT).
