@@ -47,8 +47,11 @@ Why the other modes don't produce a `BlamconLightgunHID`:
   *Firmware 2.1.0+* additionally exposes a vendor-defined HID collection (usage page `0xFF00`,
   usage `0x01`) in mouse mode, which the vendored code (upstream 2.0) surfaces as an output-only
   `BlamconMouseModeDevice` — reachable via `BlamconLightgunHID.GetForceFeedback(player)`. It is
-  **not** a `Lightgun` and has no aim/buttons. We don't drive it: MnK-mode feedback stays on the
-  serial port, which works on every firmware, and driving both would double-kick.
+  **not** a `Lightgun` and has no aim/buttons. Since 0.6.0 `BlamconModule` **does** drive it, so
+  on 2.1.0+ an MnK gun gets its feedback over HID and never touches the serial port. Below
+  2.1.0 the collection doesn't exist and `BlamconSerial` carries feedback as before —
+  `BlamconSerial` stands down whenever HID owns the gun, so only one transport is ever live
+  and a shot can't double-kick.
 - **Joystick mode**: the package registers no layout for the joystick usage, so it's equally
   invisible. Gamepad mode is the only mode `BlamconModule` sees.
 
@@ -125,8 +128,9 @@ ASCII (`SerialPort.WriteLine`), ~500 ms timeouts.
 **In this package** `BlamconSerial` implements all of the above with an **MnK-first policy**
 (mirroring the RS3 module): a single gun is **left in whatever mode it arrived in**. A
 Gamepad-mode gun is claimed by `BlamconModule`; an MnK-mode gun plays through the manager's
-mouse path and `BlamconSerial` — registered as a module — claims its mouse shots and fires
-**serial recoil/rumble** (`F.0.1.n` / `F.1.1.n`, the "Hook of the Reaper" trick, works in any
+mouse path, and on firmware 2.1.0+ `BlamconModule` also drives its feedback over the vendor
+HID collection. Only below 2.1.0 does `BlamconSerial` — registered as a module — claim its
+mouse shots and fire **serial recoil/rumble** (`F.0.1.n` / `F.1.1.n`, the "Hook of the Reaper" trick, works in any
 mode). Only when **2+ physical guns** exist (any mix of families, via `LightgunRoster`) are
 MnK guns switched to Gamepad mode — per-device identity is unavoidable then, since two mice
 can't share one OS cursor. Guns the package switched are restored to their arrival mode on
@@ -317,7 +321,7 @@ lightgun has (recoil, slide, ammo LEDs, serial ports, FFB handshakes) go through
 
 The manager subscribes to `Fire`/`Reload` and re-raises them as C# events
 (`FirePressed`/`ReloadPressed`) carrying the firing `InputDevice`, its owning module (null =
-mouse), and the aim position at that moment. It debounces trigger bounce (`minFireInterval`).
+mouse), and the aim position at that moment. It debounces trigger bounce (`minFireInterval`), timed per device, so two guns firing in the same instant both get their shot.
 
 **Aim** is centralized in `LightgunManager.AimPosition` (screen pixels): the mouse and every
 module's `TryGetAim` feed it, and whichever source **moved most recently** owns the crosshair.
@@ -347,6 +351,8 @@ The mode policy makes multiplayer automatic at the device level:
    - `LightgunManager.GetGunDevices()` — the connected physical gun devices (assign players).
    - `FirePressed`/`ReloadPressed` args carry the firing `Device`, and their `AimPosition` is
      already **that device's own aim** (`GetAimFor` internally).
+   - Each device's trigger is read on its own (the manager keeps one copy of the action map per
+     device), so one player holding the trigger never blocks another player's shot.
    - `GetAimFor(device)` — that player's live crosshair each frame.
    - `Recoil(args.Device, ammo)` — kicks exactly the gun that fired, whatever family it is.
 

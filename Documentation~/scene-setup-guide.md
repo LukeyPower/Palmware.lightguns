@@ -166,7 +166,7 @@ tooltip in the Inspector — hover for the details.
 **LightgunManager**
 - *Input Actions* / *Action Map Name*: Step 4.
 - *Min Fire Interval* (0.06): debounces trigger bounce — real lightgun triggers can deliver
-  two presses on one pull.
+  two presses on one pull. Timed per device: one gun's pull never swallows another gun's.
 - *Mouse Aim* (on): lets the system mouse drive `AimPosition` for desktop testing. The mouse
   only takes the crosshair when it actually moves, so it never fights a gun.
 

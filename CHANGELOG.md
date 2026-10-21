@@ -4,6 +4,67 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-21
+
+**HID feedback for mouse-mode guns.** `BlamconMouseModeDevice` was bundled in 0.5.0 but
+left unused; it is now the feedback path for a mouse-mode Blamcon on firmware **2.1.0+**.
+An MnK gun gets recoil, rumble, LEDs and ammo over HID output reports without being
+switched out of mouse mode — so it keeps driving the OS cursor, there's no re-enumeration
+pause, and nothing is persisted to the gun. HID also survives unplug/replug (no COM port to
+be reassigned) and is the only transport that works over Bluetooth, which is where Blamcon
+is taking the platform.
+
+### Changed
+- `BlamconModule` resolves feedback to whichever device a player has — gamepad-mode gun
+  **or** mouse-mode HID collection — via `BlamconLightgunHID.GetForceFeedback(player)`.
+  `GunFor()` returns `IForceFeedback` instead of casting to `BlamconLightgunHID`, so a
+  mouse-mode device is no longer discarded. `Owns()` claims mouse shots while a mouse-mode
+  gun is reachable over HID, which routes its recoil here instead of to `BlamconSerial`.
+  Like `BlamconSerial.Owns`, it checks the USB vendor id (`0x3673`) when Unity exposes it,
+  so a click on a desk mouse does not kick the gun.
+- `BlamconSerial` stands down entirely whenever HID owns the gun (`IsConnected`, `Owns`,
+  `Recoil`, `Rumble`). Exactly one transport is ever live, so a shot never double-kicks.
+  "HID owns the gun" means an **enabled** `BlamconModule` has *Claim Mouse While Mouse Mode
+  Hid* on and a mouse-mode gun is reachable. With the toggle off, or no `BlamconModule` in
+  the scene, serial keeps the gun, so it is never left with no feedback.
+- `OnDeviceChange` re-arms the FFB-control handshake on a mouse-mode device too, so control
+  survives a hot-plug in either mode.
+
+- `BlamconModule` sends **one output report per gun per frame**. `Recoil`, `Rumble` and
+  `SetAmmo` no longer send on the spot; whatever is asked for during a frame is packed into a
+  single `BlamconHIDOutputReport` and sent in `LateUpdate`. The gun services one feedback
+  command at a time, so two calls in the same instant (damage rumble + the shot's recoil)
+  used to drop the second.
+
+### Fixed
+- **Two guns firing together lost a shot.** Two causes, both fixed:
+  - Every device was read through one shared `Fire` action. While one gun's trigger was held,
+    the Input System ignored every other gun's pull on that action, and two pulls in the same
+    update raised one event. `LightgunManager` now makes a copy of the action map for each
+    device Fire or Reload is bound to (`InputActionMap.devices` = that device) and raises
+    `FirePressed` / `ReloadPressed` from those copies. The copies are rebuilt when devices are
+    added, removed or reconnected. The shared map stays enabled, so `FireWasPressedThisFrame`,
+    `SubmitWasPressedThisFrame` and game code reading the same asset are unchanged.
+  - The Fire debounce (`minFireInterval`) used one timer for every device, so a second gun's
+    pull inside the window was swallowed. It is now timed per device.
+
+  Checked with two virtual mice in Play (Gun Knight, 2026-10-21): B alone, A held then B,
+  and A and B in the same update gave 5 of 5 `FirePressed`; 0.5.1 gave 3 of 5.
+- **Ammo display with *Control Ammo* on.** Taking ammo control zeroes the gun's display, and
+  the module took control without sending a count, so the display read 0 until the next
+  shot — and again after every hot-plug and every focus regain. The module now remembers
+  the last count the game pushed (`Recoil`/`SetAmmo`) and sends it in the same report that
+  takes control, as upstream documents.
+
+### Added
+- `BlamconModule` → *Claim Mouse While Mouse Mode Hid* (default on). Turn it off to force
+  the old serial path for mouse-mode guns.
+
+### Firmware
+- Mouse-mode HID needs **2.1.0+** (released 2026-09-16). Below that the vendor HID
+  collection doesn't exist, nothing is found, and the serial path carries feedback exactly
+  as in 0.5.0 — no configuration change needed either way.
+
 ## [0.5.1] - 2026-10-18
 
 ### Fixed

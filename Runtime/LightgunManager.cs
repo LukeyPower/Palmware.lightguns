@@ -188,8 +188,15 @@ namespace Palmware.Lightguns
         //  Lifecycle
         // -----------------------------------------------------------------------
         private InputAction _fire, _reload, _submit;
+        private InputActionMap _map;
         private ILightgunModule _aimOwner;   // null = mouse owns the crosshair
-        private float _lastFireTime = -1f;
+
+        // One copy of the action map per device (keyed by deviceId), restricted to that
+        // device. Fire/Reload events come from these copies: on one shared action, a
+        // trigger held on one gun made the Input System ignore every other gun's pull.
+        private readonly Dictionary<int, InputActionMap> _deviceMaps = new Dictionary<int, InputActionMap>();
+        // Last accepted Fire per device (deviceId), for the trigger-bounce debounce.
+        private readonly Dictionary<int, float> _lastFireTimes = new Dictionary<int, float>();
 
         private void Awake()
         {
@@ -217,8 +224,8 @@ namespace Palmware.Lightguns
             if (Instance != this) return;
 
             InputSystem.onDeviceChange -= OnDeviceChange;
-            if (_fire != null) _fire.performed -= OnFirePerformed;
-            if (_reload != null) _reload.performed -= OnReloadPerformed;
+            foreach (var deviceMap in _deviceMaps.Values) ReleaseDeviceMap(deviceMap);
+            _deviceMaps.Clear();
         }
 
         private void BindActions()
@@ -236,13 +243,77 @@ namespace Palmware.Lightguns
                 return;
             }
 
+            _map = map;
             _fire = map.FindAction("Fire");
             _reload = map.FindAction("Reload");
             _submit = map.FindAction("Submit");
+            // The shared map stays on for Submit, FireWasPressedThisFrame and any game code
+            // reading the same asset. Fire/Reload events come from the per-device copies.
             map.Enable();
 
-            if (_fire != null) _fire.performed += OnFirePerformed;
-            if (_reload != null) _reload.performed += OnReloadPerformed;
+            RefreshDeviceMaps();
+        }
+
+        // -----------------------------------------------------------------------
+        //  Per-device action maps — every device Fire or Reload is bound to gets its
+        //  own copy of the map, so each gun's trigger is read on its own.
+        // -----------------------------------------------------------------------
+        private void RefreshDeviceMaps()
+        {
+            if (_map == null) return;
+
+            var present = new HashSet<int>();
+            foreach (var device in InputSystem.devices)
+            {
+                if (!device.added || !IsBoundToFireOrReload(device)) continue;
+                present.Add(device.deviceId);
+                if (_deviceMaps.ContainsKey(device.deviceId)) continue;
+
+                var deviceMap = _map.Clone();
+                deviceMap.devices = new[] { device };
+                var fire = deviceMap.FindAction("Fire");
+                var reload = deviceMap.FindAction("Reload");
+                if (fire != null) fire.performed += OnFirePerformed;
+                if (reload != null) reload.performed += OnReloadPerformed;
+                deviceMap.Enable();
+                _deviceMaps.Add(device.deviceId, deviceMap);
+                if (logDebugMessages) Debug.Log($"[Lightgun] Reading Fire/Reload from '{device.displayName}' on its own.");
+            }
+
+            var gone = new List<int>();
+            foreach (var pair in _deviceMaps)
+                if (!present.Contains(pair.Key)) gone.Add(pair.Key);
+            foreach (int id in gone)
+            {
+                ReleaseDeviceMap(_deviceMaps[id]);
+                _deviceMaps.Remove(id);
+            }
+        }
+
+        // Matched against the binding paths, not the shared action's resolved controls,
+        // so this does not depend on the order device-change callbacks run in.
+        private bool IsBoundToFireOrReload(InputDevice device)
+        {
+            foreach (var action in new[] { _fire, _reload })
+            {
+                if (action == null) continue;
+                foreach (var binding in action.bindings)
+                {
+                    if (binding.isComposite || string.IsNullOrEmpty(binding.effectivePath)) continue;
+                    if (InputControlPath.TryFindControl(device, binding.effectivePath) != null) return true;
+                }
+            }
+            return false;
+        }
+
+        private void ReleaseDeviceMap(InputActionMap deviceMap)
+        {
+            var fire = deviceMap.FindAction("Fire");
+            var reload = deviceMap.FindAction("Reload");
+            if (fire != null) fire.performed -= OnFirePerformed;
+            if (reload != null) reload.performed -= OnReloadPerformed;
+            deviceMap.Disable();
+            deviceMap.Dispose();
         }
 
         // -----------------------------------------------------------------------
@@ -250,13 +321,17 @@ namespace Palmware.Lightguns
         // -----------------------------------------------------------------------
         private void OnFirePerformed(InputAction.CallbackContext ctx)
         {
-            // Debounce trigger bounce (two events on one physical pull).
-            if (minFireInterval > 0f &&
-                _lastFireTime >= 0f && Time.unscaledTime - _lastFireTime < minFireInterval)
-                return;
-            _lastFireTime = Time.unscaledTime;
-
             var device = ctx.control.device;
+
+            // Debounce trigger bounce (two events on one physical pull). Timed per device:
+            // one shared timer swallowed the second player's shot when two guns fired
+            // within the window.
+            float now = Time.unscaledTime;
+            if (minFireInterval > 0f && device != null &&
+                _lastFireTimes.TryGetValue(device.deviceId, out float last) && now - last < minFireInterval)
+                return;
+            if (device != null) _lastFireTimes[device.deviceId] = now;
+
             RefreshAim(device);
             // Per-device aim: in multiplayer each gun's shot lands where THAT gun
             // points, not where the shared crosshair is.
@@ -286,6 +361,18 @@ namespace Palmware.Lightguns
             // Modules first, so they can (re)initialize their hardware — e.g. the
             // Blamcon module re-arms force feedback on every hot-plug.
             foreach (var m in _modules) m.OnDeviceChange(device, change);
+
+            switch (change)
+            {
+                case InputDeviceChange.Added:
+                case InputDeviceChange.Removed:
+                case InputDeviceChange.Reconnected:
+                case InputDeviceChange.Disconnected:
+                case InputDeviceChange.UsageChanged:
+                case InputDeviceChange.ConfigurationChanged:
+                    RefreshDeviceMaps();
+                    break;
+            }
 
             var owner = FindOwner(device);
             if (owner == null) return;

@@ -189,13 +189,24 @@ namespace Palmware.Lightguns
             }
         }
 
+        // Firmware 2.1.0+ exposes a vendor HID collection on a mouse-mode gun, and
+        // BlamconModule drives it. HID is the better transport (survives replug, no
+        // COM-port reassignment, and it's where Blamcon is taking the platform), so
+        // whenever it's available this serial path stands down completely rather
+        // than kicking the same gun twice. It stands down only while an enabled
+        // BlamconModule actually claims the gun (claimMouseWhileMouseModeHid on);
+        // otherwise nothing would drive it. On older firmware the collection doesn't
+        // exist, this stays false, and serial carries the feedback as before.
+        private static bool HidOwnsMouseModeFeedback =>
+            BlamconModule.ClaimsMouseModeHid && BlamconModule.HasMouseModeGun;
+
         // ── ILightgunModule (the MnK-mode serial feedback path) ────────────────
 
         public string DisplayName => "Blamcon (serial/MnK)";
 
         // "Connected" = at least one gun is playing through the serial/MnK path.
         // (Gamepad-mode guns are BlamconModule's to report.)
-        public bool IsConnected => HasMnkGun;
+        public bool IsConnected => HasMnkGun && !HidOwnsMouseModeFeedback;
 
         // MnK mode: the gun's mouse interface IS the gun — claim its shots so
         // Recoil() routes here. Precise when Unity exposes USB ids: the gun's
@@ -204,6 +215,7 @@ namespace Palmware.Lightguns
         // we fall back to the single-gun any-mouse assumption.
         public bool Owns(InputDevice device)
         {
+            if (HidOwnsMouseModeFeedback) return false; // BlamconModule has this gun over HID
             if (!claimMouseWhileMnk || !(device is Mouse) || !HasMnkGun) return false;
             if (UsbDeviceId.TryGetVendorId(device, out int vid))
                 return vid == 0x3673;
@@ -225,13 +237,17 @@ namespace Palmware.Lightguns
 
         public void Recoil(InputDevice firingDevice, int remainingAmmo)
         {
-            if (!serialRecoilInMnk) return;
+            if (!serialRecoilInMnk || HidOwnsMouseModeFeedback) return;
             if (_lastFireTime >= 0f && Time.unscaledTime - _lastFireTime < minRecoilInterval) return;
             _lastFireTime = Time.unscaledTime;
             SendToMnkGuns(Commands.Recoil(recoilPulses));
         }
 
-        public void Rumble() => SendToMnkGuns(Commands.Rumble(rumblePulses));
+        public void Rumble()
+        {
+            if (HidOwnsMouseModeFeedback) return;
+            SendToMnkGuns(Commands.Rumble(rumblePulses));
+        }
 
         public void ReloadFeedback() { } // no slide, no serial ammo command
         public void SetAmmo(int remainingAmmo) { }
